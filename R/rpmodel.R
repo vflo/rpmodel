@@ -222,7 +222,7 @@ rpmodel <- function( tc, vpd, co2, fapar, ppfd, patm = NA, elv = NA,
   ## 'do_ftemp_kphio' is not actually a stress function, but is the temperature-dependency of
   ## the quantum yield efficiency after Bernacchi et al., 2003 PCE
   if (do_ftemp_kphio){
-    ftemp_kphio <- calc_ftemp_kphio( tc )
+    ftemp_kphio <- calc_ftemp_kphio( tc, c4 )
   } else {
     ftemp_kphio <- 1.0
   }
@@ -397,6 +397,9 @@ calc_optimal_chi <- function( kmm, gammastar, ns_star, ca, vpd, beta ){
   #           - ns
   #           - vpd
   #-----------------------------------------------------------------------
+  
+  ## Avoid negative VPD (dew conditions), resolves issue #2 (https://github.com/stineb/rpmodel/issues/2)
+  vpd <- ifelse(vpd < 0, 0, vpd)
 
   ## leaf-internal-to-ambient CO2 partial pressure (ci/ca) ratio
   xi  <- sqrt( (beta * ( kmm + gammastar ) ) / ( 1.6 * ns_star ) )
@@ -557,7 +560,7 @@ calc_chi_c4 <- function(){
   #//////////////////////////////////////////////////////////////////
   # (Dummy-) ci:ca for C4 photosynthesis
   #-----------------------------------------------------------------------
-  out <- list( chi=9999, mc=1, mj=1, mjoc=1 )
+  out <- list( chi=1.0, mc=1.0, mj=1.0, mjoc=1.0 )
   return(out)
 }
 
