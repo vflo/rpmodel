@@ -1,0 +1,677 @@
+---
+title: "The hydraulic P-model"
+author: "Jaideep Joshi"
+date: "`r Sys.Date()`"
+output:
+  html_document: null
+  word_document: default
+  toc: yes
+  pdf_document: default
+toc_depth: 3
+toc_float: yes
+---
+  
+  
+```{r include=FALSE}
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(gridExtra)
+library(scales)
+library(rpmodel)
+
+# source("QUADP.R")
+
+knitr::opts_chunk$set(echo = T)
+
+# Function to read code skipping roxygen documentation lines
+readLines_nodocs <- function(file){
+  a = readLines(file)
+  id = grep("#'", a)
+  a[-id]
+}
+```
+
+
+
+```{r}
+par_plant_std = list(
+  Ks0=1e-12,              # m2
+  v_huber=1e-4,           #
+  height=10,              # m
+  conductivity_scalar=3,  # Scales (Ks0*v_huber/H)
+  psi50 = -2,             # Mpa
+  b=2                    # 
+)
+
+tc=25
+p = rpmodel::calc_patm(0)
+vpd = 1000
+
+par_env_std = list(
+  viscosity_water = rpmodel::calc_viscosity_h2o(tc, p),  # Needs to be imported from rpmodel.R
+  density_water = rpmodel::calc_density_h2o(tc, p),  # Needs to be imported from rpmodel.R
+  patm = p,
+  tc = tc,
+  vpd = vpd
+)
+```
+
+## Hydraulics
+
+The key aspect of the flow of liquid water through the plant's hydraulic pathways is that the conductivity of these pathways declines as water potential becomes more and more negative. This loss of conductivity is described by a vulnerability curve of the form:
+
+$$
+P(\psi)=\left(\frac{1}{2}\right)^{\left(\frac{\psi}{\psi_{50}}\right)^b}
+$$ 
+
+### Hydraulic vulnerability curve
+
+```{r, code = readLines_nodocs("../R/hyd_vulnerability_curve.R")}
+```
+
+```{r}
+tibble(psi=seq(-6,0, 0.1)) %>% 
+mutate(P = purrr::map_dbl(psi, ~P(., par_plant_std$psi50, par_plant_std$b))) %>% 
+mutate(Pprime = purrr::map_dbl(psi, ~Pprime(., par_plant_std$psi50, par_plant_std$b))) %>% 
+mutate(Pprimeprime = purrr::map_dbl(psi, ~Pprimeprime(., par_plant_std$psi50, par_plant_std$b))) %>% 
+ggplot()+
+geom_line(aes(x=psi, y=P))+
+geom_line(aes(x=psi, y=Pprime), color="red")+
+ggtitle("black: P(psi), red: P'(psi)")
+```
+
+
+### Water flow in the stem and in the leaf
+
+#### Water flow through a general conducting pathway
+
+In general, water flux through any conductive pathway in the plant follows the following differential equation:
+
+$$
+\frac{d\psi}{dh} = -\rho g - \frac{\eta Q}{K(h)P(\psi,h)} 
+$$
+where $\psi$ is the water potential at a distance $h$ from the starting point, $Q$ is the flux of water through the pathway, $\eta$ is the viscosity of water, $g$ is the component of gravity in the direction of the flow, $K$ is the conductivity of the pathway. $K$ and $P$ may depend on $h$ due to structural variations, such as variation in the vessel geometry with height (vessel tapering). 
+
+#### Flow through the stem in xylem
+
+Water is conducted through the stem by interconnected xylem vessels. The conductivity of a single vessel with length $l_v$ and radius $r_v$ is given by the Hagen-Poiseuille equation:
+$$
+K_v = \frac{\pi r_v^4}{8l_v}
+$$
+
+If the sapwood has has a density $\rho_v$ of vessels, their conductance will add up (as the vessels are in parallel). The conductivity of a section of sapwood of unit length per unit unit area (sapwood specific conductivity) would then be
+
+$$
+K_s = \frac{\pi\rho_v r_v^4}{8}
+$$
+
+For typical vessel characteristics (Choat et al. 2005): $\rho_v = 217 \mathrm{/mm^2}, r_v = 15.25\ \mathrm{\mu m}$, which gives a theoretical conductivity to be $K_s = \pi\rho_v r_v^4 / 8 = 4.6\times 10^{-12}\ \mathrm{m^2}$. The actual conductivity is about 4x lower: $K_{s,\text{actual}} = 1.15\times 10^{-12} = 1.29\ \mathrm{kg\cdot m^{-1} \cdot s^{-1} \cdot Mpa^{-1}}$.
+
+
+If we ignore gravitational and xylem tapering effects, we can use the above equation for the stem to express $Q$ as:
+$$
+Q = -\frac{K_{s} \nu_H}{H \eta} \int_{\psi_s}^{\psi_p} P_s(\psi) d\psi,
+$$
+where the subscripts $s$ and $p$ represent the soil and end of the petiole respectively, and $P_s(\psi)$ represents the vulnerability curve for the stem. Stem vulnerability is largely due to xylem cavitation. Since $Q$ is expressed as the flux of water per unit leaf area, we multiply the sapwood specific conductivity by the Huber Value ($\nu_H$) to get the leaf specific conductivity.
+
+#### Flow through outside xylem pathways
+
+Once the water exits the xylem near the petiole, it must pass through bundle sheath cells and several layers of spongy mesophyll cells before reaching the stomata, from where it vapourizes from the cell walls and out into the atmosphere. These outside-xylem pathways offer much larger resistence to water flow compared to xylem, and lose conductivity much faster than xylem, making the leaf the hydraulic bottleneck in the flow of water. 
+
+We can represent the sum total flow through all the different outside-xylem pathways (through the cell walls and cell mesophyll) in the same way as the flow through the stem, 
+
+$$
+Q = -\frac{K_{l}}{\Delta L \eta} \int_{\psi_p}^{\psi_l} P(\psi) d\psi,
+$$
+where $K_l$ is the conductivity of the leaf per unit leaf area, $\Delta L$ is the path length that water must traverse outside the xylem, and the subscript $l$ represents the leaf (more accurately, the endpoint of the hydraulic pathway, near the stomatal cells). The path length $\Delta L$ depends on the leaf thickness (LMA) and the vein length per unit leaf area (VLA). 
+
+### Water Balance
+
+Ignoring storage and capacitance effects, this flow $Q$ must equal transpiration through leaves $E=1.6g_s D$ to satisfy water balance:
+
+$$
+Q = -\frac{K_{s} \nu_H}{H \eta} \int_{\psi_s}^{\psi_p} P_s(\psi) d\psi = -\frac{K_{l}}{\Delta L \eta} \int_{\psi_p}^{\psi_l} P(\psi) d\psi = 1.6g_sD
+$$
+
+For simplicity, let us we club the net conductivity of the stem and leaf into single variables, and express the water potential difference from petiole to leaf as $\Delta \psi$: 
+
+$$
+Q = -K_{S}\int_{\psi_s}^{\psi_p = \psi_s -\Delta\psi_s} P_s(\psi) d\psi = -K_{L} \int_{\psi_p}^{\psi_p-\Delta \psi} P(\psi) d\psi = 1.6g_sD
+$$
+
+Given $\Delta\psi$, this gives us two nonlinear simultaneous equations which can be solved iteratively for $g_s$ and $\psi_p$. However, if we make a simplifying assumption as described below, we can solve for $g_s$ analytically.
+
+### Leaf as the hydraulic bottleneck
+
+There is increasing evidence that the leaf is the hydraulic bottleneck in the flow of water through the plant. This manifests in two ways: 1) The xylem conductivity is much larger than the leaf conductivity ($K_{S} \gg K_L$). Thus, the drop in water potential along the xylem pathway is much lesser compared to that in the outside-xylem pathway ($\Delta\psi_s \ll \Delta\psi$), and 2) the operating water potential (water potential until stomatal closure) in the xylem is much lower (less negative) than required to cause embolism. Therefore $P_s(\psi) \approx 1$. With these assumptions, $\Delta\psi_s \approx 0$, and $\psi_p \approx \psi_s$.
+
+
+### Stomatal conductance
+
+With the above simplifications, we can express $g_s$ in terms of $\Delta \psi$ as 
+
+$$
+g_s = -\frac{K_L}{1.6D}\int_{\psi_s}^{\psi_s-\Delta\psi}P(\psi)d\psi
+$$
+
+We further note that due to the water balance condition, $g_s$ is independent of $\chi$.
+
+
+```{r, code = readLines_nodocs("../R/hyd_transpiration.R")}
+```
+
+```{r}
+## Plot gs and its derivatives
+tibble(dpsi=seq(0, 5, 0.2)) %>% 
+  mutate(gs = purrr::map_dbl(dpsi, ~calc_gs(., 0, par_plant_std, par_env_std))) %>% 
+  mutate(gsprime_num = purrr::map_dbl(dpsi, ~calc_gsprime_numerical(., 0, par_plant_std, par_env_std))) %>%   mutate(gsprime = purrr::map_dbl(dpsi, ~calc_gsprime(., 0, par_plant_std, par_env_std))) %>% 
+  ggplot()+
+  geom_line(aes(x=dpsi, y=gs))+
+  geom_point(aes(x=dpsi, y=gsprime_num), color="red")+
+  geom_line(aes(x=dpsi, y=gsprime), color="orange")+
+  ggtitle("gs (black), gs' (orange), gs' (numerical, points) ")
+
+```
+
+
+## Photosynthesis
+
+### Rates of carbon fixation
+
+The rate of photosynthesis is the minimum of the electron transport limited and the carbxylation limited rates.
+
+The carboxylation-limited rate is given by the Cowan-Farquhar biochemical model:
+
+$$
+A_c = V_\mathrm{cmax}\frac{c_i - \Gamma^*}{c_i + K} - R_d
+$$
+where $R_d$ is dark respiration, which is assumed to be proportional to $V_\mathrm{cmax}$.
+
+$$
+R_d = \delta V_\mathrm{cmax}
+$$
+
+Therefore, $A_c$ can be written as
+
+$$
+A_c = V_\mathrm{cmax}\frac{c_i(1-\delta) - (\Gamma^*+\delta K)}{c_i + K}
+$$
+
+The electron transport limited rate is given by
+
+$$
+A_j = A_{Jm}\frac{c_i - \Gamma^*}{c_i + 2\Gamma^*} - R_d
+$$
+
+where 
+
+
+$$
+A_{Jm} = \frac{\phi_0 I_\mathrm{abs}}{\sqrt{1+\left( \frac{4\phi_0 I_\mathrm{abs}}{J_\mathrm{max}}\right)^2}}
+$$
+
+Inverting the above relation, we can express $J_\mathrm{max}$ in terms of $A_{Jm}$ as 
+
+$$
+J_\mathrm{max} = \frac{4\phi_0 I_\mathrm{abs}}{\sqrt{\left( \frac{\phi_0 I_\mathrm{abs}}{A_{Jm}}\right)^2-1}}
+$$
+
+
+The rate of CO2 fixation must also equal the rate of CO2 uptake by the plant:
+$$
+A = g_s c_a (1-\chi)
+$$
+
+### Coordination hypothesis
+
+<!-- Since both $V_\mathrm{cmax}$ and $J_\mathrm{max}$ are costly,  -->
+
+The coordination hypothesis states that $V_\mathrm{cmax}$ should be large enough to fully utilize the available electron transport capacity, but not in excess of it, so as to save on costs of maintaining the carboxylation capacity. 
+
+We assume that Vcmax adjusts to the prevailing daytime light and moisture conditions (i.e, to available $J_\mathrm{max}$) such that the carboxylation-limited and electron-transport-limited assimilation rates are equal. 
+
+$$
+A = A_c = A_j
+$$
+
+Therefore
+$$
+V_\mathrm{cmax}\frac{c_i - \Gamma^*}{c_i + K} -R_d = A_{Jm}\frac{c_i - \Gamma^*}{c_i + 2\Gamma^*} - R_d
+$$
+
+Therefore,
+$$
+V_\mathrm{cmax} = A_{Jm}\frac{c_i +K}{c_i + 2\Gamma^*}
+$$
+
+
+Therefore, $A_j$ can be rewritten as
+
+$$
+A_j = g_s c_a (1-\chi) = A_{Jm}\frac{c_i(1-\delta) - (\Gamma^*+\delta K)}{c_i + 2\Gamma^*}
+$$
+
+
+Therefore, $A_{Jm}$ can be expressed in terms of $\chi$ as
+
+$$
+A_{Jm} = g_s c_a \frac{(1-\chi)(\chi c_a + 2\Gamma^*)}{\chi c_a(1-\delta) - (\Gamma^*+\delta K) }
+$$
+
+This gives us an expression for $J_\mathrm{max}$ in terms of $g_s$ and $\chi$. 
+
+### Calculate the limiting rate from $g_s$ and Jmax / Vcmax
+
+It is useful to be able to calculate the limiting rate and the resultant $c_i$ when $g_s$, $J_\mathrm{max}$ and the coordinated $V_\mathrm{cmax}$ are known. This can be used for daily or sub-daily photosynthesis rates when the photosynthetic capacity does not change, but other environmental variables such as light intensity change. 
+
+#### Rubisco limited assimilation rate
+
+This can be found by solving:
+$$
+A = g_s (c_a- c_i) = \mathrm{V_\mathrm{cmax}} \frac{c_i(1-\delta) - (\Gamma^*+\delta K)}{c_i + K}
+$$
+so that
+$$
+g_s(c_a-c_i)(c_i+K) = \mathrm{V_\mathrm{cmax}} (c_i(1-\delta) - (\Gamma^*+\delta K))
+$$
+$$
+g_s c_a c_i + g_s c_a K - g_s c_i^2 -g_s c_i K = \mathrm{V_\mathrm{cmax}} c_i(1-\delta) - \mathrm{V_\mathrm{cmax}} (\Gamma^*+\delta K)
+$$
+$$
+-g_sc_i^2 + (g_s c_a  - g_s K -\mathrm{V_\mathrm{cmax}}(1-\delta)) c_i + (g_s c_a K + \mathrm{V_\mathrm{cmax}} (\Gamma^*+\delta K)) = 0
+$$
+
+#### Light Limited assimilation rate
+
+This can be found by solving:
+$$
+A = g_s (c_a- c_i) = A_{Jm} \frac{c_i(1-\delta) - (\Gamma^*+\delta K)}{c_i + 2\Gamma^*}
+$$
+which is identical to the above system, but with $V_\mathrm{cmax}$ replaced by $A_{Jm}$ and $K$ replaced by $2\Gamma^*$ in the denominator. It therefore leads to the equation:
+
+$$
+-g_sc_i^2 + (g_s c_a  - 2g_s \Gamma^* -A_{Jm}(1-\delta)) c_i + (2g_s c_a \Gamma^* + A_{Jm} (\Gamma^*+\delta K)) = 0
+$$
+
+Here are the rates with with and without $J_\mathrm{max}$ limitation:
+
+```{r, code = readLines_nodocs("../R/hyd_photosynthesis.R")}
+```
+
+
+```{r echo = T}
+get_std_photosythnesis_params = function(){ 
+  ## Set P-model parameters
+  kphio <- 0.05        # quantum yield efficiency
+  # c_molmass <- 12.0107 # molar mass, g / mol
+  
+  ## Define environmental conditions
+  tc <- 25             # temperature, deg C
+  ppfd <- 400          # umol/m2/s
+  # vpd  <- 1000         # Pa
+  co2  <- 400          # ppm
+  elv  <- 0            # m.a.s.l.
+  fapar <- 0.7         # fraction
+  
+  p = rpmodel::calc_patm(elv)
+  return (list(
+    kmm = rpmodel::calc_kmm(tc, p),  # Why does this use std. atm pressure, and not p(z)?
+    gammastar = rpmodel::calc_gammastar(tc, p),
+    phi0 = kphio*rpmodel::calc_ftemp_kphio(tc),
+    Iabs = ppfd*fapar,
+    ca = co2*p*1e-6,  # Convert to partial pressure
+    patm = p,
+    delta = 0.00
+  ))
+}
+
+df_ac_aj <- tibble(gs = exp(seq(log(0.000001), log(.1), length.out=100))) %>% 
+  mutate(aj = purrr::map(gs, ~calc_assim_light_limited(gs = ., jmax = 1e6, par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(aj, names_sep = "_") %>%   
+  mutate(ac = purrr::map(gs, ~calc_assim_rubisco_limited(vcmax = 30, gs = ., par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(ac, names_sep = "_") %>%   
+  mutate(a = purrr::map(gs, ~calc_assimilation_limiting(vcmax=30, jmax=1e6, gs = ., par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(a, names_sep = "_")
+
+p1 = df_ac_aj %>% 
+  ggplot()+
+  geom_line(aes(x=ac_ci, y=ac_a), col="green", size=1.5) + 
+  geom_line(aes(x=aj_ci, y=aj_a), col="yellow", size=1.5) +
+  geom_line(aes(x=a_ci, y=a_a), col="black")+
+  labs(title = "Ac (green) and Aj (yellow)", subtitle = "Vcmax = 30, Jmax = 1e6")
+
+
+df_ac_aj <- tibble(gs = exp(seq(log(0.000001), log(.1), length.out=100))) %>% 
+  mutate(aj = purrr::map(gs, ~calc_assim_light_limited(gs = ., jmax = 100, par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(aj, names_sep = "_") %>%   
+  mutate(ac = purrr::map(gs, ~calc_assim_rubisco_limited(vcmax = 30, gs = ., par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(ac, names_sep = "_") %>%   
+  mutate(a = purrr::map(gs, ~calc_assimilation_limiting(vcmax=30, jmax=100, gs = ., par_photosynth = get_std_photosythnesis_params()))) %>% 
+  unnest_wider(a, names_sep = "_")
+
+p2 = df_ac_aj %>% 
+  ggplot()+
+  geom_line(aes(x=ac_ci, y=ac_a), col="green", size=1.5) + 
+  geom_line(aes(x=aj_ci, y=aj_a), col="yellow", size=1.5) +
+  geom_line(aes(x=a_ci, y=a_a), col="black")+
+  labs(title = "Ac (green) and Aj (yellow)", subtitle = "Vcmax = 30, Jmax = 100")
+
+grid.arrange(p1,p2, ncol=2)
+
+```
+
+
+## Costs associated with photosynthesis
+
+To maintain a certain photosynthesis rate, plants must expend energy to maintain the photosynthetic manchinery and the hydraulic pathway. 
+
+The photosynthetic machinery consists of the carboxylation and electron-transport capacities, such as the costs of maintaining RuBisCO concentration and RuBP regeneration rate. Since the two capacities are coordinated, we assume these costs to be proportional to $J_\mathrm{max}$.
+
+The costs of maitaining the hydraulic pathway consist of 1) the construction and respiration costs of the hydraulic pathway, 2) the costs of maintining the water potential gradient in the stem and leaves, which could arise form the need to repair damaged conducting tissue (refilling embolized xylem in the stem and repairing mesophyll tissue in the leaf), and 3) the prospective costs of hydraulic failure. While it is possible to derive expressions for these costs with mechanistic arguments, we found that a simple expression for these costs of the form of $\Delta \psi ^2$ works best in capturing the functional forms of the responses of various quantities to soil moisture. In the absence of competition for water, plants may choose to conserve water for future use. This can be captured by associating a cost to water, proportional to $E$. 
+
+Many previous stomatal optimization models treat the cost of water and the hydrauic cost separately. In this study, we do not have sufficient data to differentiate between these two costs. Furthermore, the expression $\Delta \psi ^2$ qualitatively captures the sum total of these two costs: when water is abundant, $\Delta \psi$ is proportional to transpiration, whereas when water is scarce, higher $\Delta \psi$ implies higher hydrauic damage and therefore higher hydraulic costs.
+
+## Stomatal Optimization Framework
+
+We assume that plants maximize profit ($F$) defined as
+
+$$
+F = A_j - \alpha J_\mathrm{max} - \gamma \Delta \psi^2 
+$$
+
+Where each term is a function of the two independent variables $\chi$ and $\Delta \psi$.
+
+$$
+F = g_s c_a (1-\chi) - \alpha J_\mathrm{max} - \gamma \Delta \psi^2 
+$$
+
+
+To solve the optimality condition, we set the gradient of the profit function to zero.
+
+$$
+\frac{\partial F}{\partial \chi} = -g_s c_a -\alpha \frac{\partial J_\mathrm{max}}{\partial A_{Jm}} \frac{\partial A_{Jm}}{\partial \chi} - 0 = 0
+$$
+
+$$
+\frac{\partial F}{\partial \Delta\psi} = \frac{\partial g_s}{\partial \Delta\psi} c_a (1-\chi) -\alpha \frac{\partial J_\mathrm{max}}{\partial A_{Jm}} \frac{\partial A_{Jm}}{\partial \Delta\psi} - 2\gamma\Delta\psi = 0
+$$
+
+The four derivatives required in the above equations are as follows:
+
+$$
+\frac{\partial J_\mathrm{max}}{\partial A_{Jm}} = \frac{4(\phi_0 I_{abs})^3}{((\phi_0 I_{abs})^2-A_{Jm}^2)^{3/2}}
+$$
+
+<!-- $$ -->
+<!-- \frac{\partial A_{Jm}}{\partial \chi} = g_s c_a\left(\frac{c_a (1 - \chi)}{\chi c_a-\Gamma^* - \delta  (\chi c_a +  K)} - \frac{(1 - \delta ) c_a (1 - \chi) (\chi c_a + 2 \Gamma^*)}{(\chi c_a-\Gamma^* - \delta  (\chi c_a +  K))^2} - \frac{\chi c_a + 2 \Gamma^*}{\chi c_a-\Gamma^* - \delta  (\chi c_a +  K)} \right) -->
+<!-- $$ -->
+
+<!-- $$ -->
+<!-- \frac{\partial A_{Jm}}{\partial \chi} = g_s c_a \left( \delta\frac{2 \frac{\Gamma^*}{c_a} (\frac{K}{c_a} + 1) + \frac{K}{c_a} (2 \chi - 1) + \chi^2}{\left(\delta (\frac{K}{c_a} + \chi) + \frac{\Gamma^*}{c_a} - \chi\right)^2} + \frac{(2 \frac{\Gamma^*}{c_a}^2 + \frac{\Gamma^*}{c_a} (2 \chi - 3) - \chi^2)}{\left(\delta (\frac{K}{c_a} + \chi) + \frac{\Gamma^*}{c_a} - \chi\right)^2}\right) -->
+<!-- $$ -->
+$$
+\frac{\partial A_{Jm}}{\partial \chi} = g_s c_a \left( \delta\frac{2 \frac{\Gamma^*}{c_a} (\frac{K}{c_a} + 1) + \frac{K}{c_a} (2 \chi - 1) + \chi^2}{\left(\delta (\frac{K}{c_a} + \chi) + \frac{\Gamma^*}{c_a} - \chi\right)^2} - \frac{(\chi-\frac{\Gamma^*}{c_a})^2 + 3\frac{\Gamma^*}{c_a}(1-\frac{\Gamma^*}{c_a})}{\left(\delta (\frac{K}{c_a} + \chi) + \frac{\Gamma^*}{c_a} - \chi\right)^2}\right)
+$$
+$$
+\frac{\partial A_{Jm}}{\partial \Delta\psi} = \frac{\partial g_s}{\partial \Delta\psi} c_a \frac{(1-\chi)(\chi c_a + 2\Gamma^*)}{\chi c_a(1-\delta) - (\Gamma^*+\delta K) }
+$$
+
+$$
+\frac{\partial g_s}{\partial \Delta\psi} = \frac{\partial }{\partial \Delta\psi}\left(-\frac{K_L}{1.6D} \int_{\psi_s}^{\psi_s -\Delta \psi} P(\psi)d\psi \right) = \frac{K_L}{1.6D}P(\psi_s -\Delta \psi)
+$$
+
+Substituting these 4 derivatives, the roots of the gradient can be computed numerically. 
+
+
+### Analytical solution in the case of strong $J_\mathrm{max}$ limitation
+
+Optimal $\chi$ has a closed form solution in the special case where $J_\mathrm{max} \ll 4\phi_0 I_{abs}$, i.e. when $4A_{Jm} \approx J_\mathrm{max}$. In that case, 
+
+$$
+\frac{\partial J_\mathrm{max}}{\partial A_{Jm}} = 4
+$$
+and thus, 
+
+$$
+\frac{\partial F}{\partial \chi} = -g_s c_a -4\alpha \frac{\partial A_{Jm}}{\partial \chi}  = 0
+$$
+
+This ia a quadratic in $\chi$, giving
+
+$$
+\chi^* = \frac{(1-4\alpha - \delta)(\delta k + \frac{\Gamma^*}{c_a})+\sqrt{4\alpha(1-4\alpha-\delta)(3\frac{\Gamma^*}{c_a} - \delta(2\frac{\Gamma^*}{c_a} + k))(1 -\frac{\Gamma^*}{c_a}- \delta(1 + k))}}{(1-\delta)(1-4\alpha-\delta)}
+$$
+
+In the absence of dark respiration ($\delta=0$), this simplifies to:
+$$
+\chi^* = \frac{\frac{\Gamma^*}{c_a}(1-4\alpha) + \sqrt{12\alpha(1-4\alpha) \frac{\Gamma^*}{c_a}\left(1-\frac{\Gamma^*}{c_a}\right)}}{1-4\alpha}
+$$
+
+## Analytical solution
+
+The analytical solution is obtained by solving the above system of equations.
+
+```{r, code = readLines_nodocs("../R/hyd_analytical_solver.R")}
+```
+
+```{r, code = readLines_nodocs("../R/rpmodel_hydraulics_analytical.R")}
+```
+
+
+## Numerical Solution
+
+### The profit function
+
+Lets see the behaviour of the profit function. Does it have a maximum? How about the LC criterion? 
+
+```{r, code = readLines_nodocs("../R/hyd_numerical_solver.R")}
+```
+
+```{r, code = readLines_nodocs("../R/rpmodel_hydraulics_numerical.R")}
+```
+
+```{r}
+dat <- tibble(dpsi=seq(0.001,3, length.out=50), logjmax = seq(-2.5,6, length.out=50)) %>%  purrr::cross_df() %>% 
+  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="PM"))) %>% unnest(cols = profit) 
+
+p1 = dat %>% 
+  ggplot(aes(dpsi, logjmax)) +
+  geom_raster(aes(fill=profit))+
+  scale_fill_gradient2(low="red", high="blue")+
+  geom_line(aes(dpsi, 1), col="grey")+
+  ggtitle("PM")
+
+dat1 <- tibble(dpsi=seq(0.001,3, length.out=50), logjmax = seq(-2.5,6, length.out=50)) %>%  purrr::cross_df() %>% 
+  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="LC"))) %>% unnest(cols = profit) 
+
+p2 = dat1 %>% 
+  ggplot(aes(dpsi, logjmax)) +
+  geom_raster(aes(fill=log(1e-6-profit)))+
+  scale_fill_gradient2(low="red", high="blue")+
+  labs(fill="cost")+
+  geom_line(aes(dpsi, 1), col="grey") + 
+  ggtitle("LC")
+
+cowplot::plot_grid(p1,p2, ncol=2, align = "hv", rel_heights = 1, rel_widths = 1)
+
+```
+
+Yes with the PM hypothesis and around a very realistic value of $\Delta \Psi \approx 1$; but not with the LC hypothesis - Minimum occurs at 0!
+
+## Some utilities to facilitate comparison with classic pmodel (Wang et al 2017)
+
+
+We must convert outputs of the classic model into units that the hydraulic pmodel outputs:
+```{r}
+# P-model as per Wang et al 2017
+# This needs PPFD in mol/m2/day
+
+pmodel_wang17 = function(tc, ppfd, vpd, co2, elv, fapar, kphio, ...){
+
+    out_analytical <- rpmodel::rpmodel(
+          tc             = tc,
+          vpd            = vpd,
+          co2            = co2,
+          elv            = elv,
+          kphio          = kphio,
+          beta           = 146,
+          fapar          = fapar,
+          ppfd           = ppfd*1e-6*86400, # p-model requires in mol/m2/day
+          ...
+          )
+
+  # Convert some outputs to facilitate comparison
+  return(list_modify(out_analytical,
+                       gs = out_analytical$gs/86400*rpmodel::calc_patm(elv), # mol/m2/day/Pa --> mol/m2/s
+                       gpp = out_analytical$gpp/1.03772448,  # gC/m2/day --> umol/m2/s
+                       vcmax = out_analytical$vcmax/0.0864   # mol/m2/day --> umol/m2/s
+                      )
+  )
+}
+```
+
+
+```{r}
+# Combine Hydraulic and classic results
+
+pmodel_calibrate <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM"){
+  out_hydraulics = pmodel_hydraulics_analytical(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark, par_plant, par_cost)
+
+  out_analytical = pmodel_wang17(tc, ppfd, vpd, co2, elv, fapar, kphio)
+
+      return(list(out_hydraulics = out_hydraulics,
+                  out_analytical = out_analytical))
+}
+
+pmodel_calibrate_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM"){
+  out_hydraulics = pmodel_hydraulics_numerical(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark, par_plant, par_cost)
+  
+  out_analytical = pmodel_wang17(tc, ppfd, vpd, co2, elv, fapar, kphio)
+  
+      return(list(out_hydraulics = out_hydraulics,
+                  out_analytical = out_analytical))
+}
+
+```
+
+
+```{r echo=F}
+plot_all = function(df_w_vol, varname, ref=NULL){
+  p1 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_vcmax), col="green3", size=1) +
+  geom_line(aes(x = var, y = out_analytical_vcmax ), col="grey", size=1) +
+  expand_limits(y=0)+
+    xlab(varname)+ylab("Vcmax")
+
+p2 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_dpsi), col="blue", size=1)+
+  expand_limits(y=0)+
+    xlab(varname)+ylab("Dpsi")
+
+p3 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_gs), col="cyan2", size=1)+
+  geom_line(aes(x = var, y = out_analytical_gs), col="grey", size=1)+
+  expand_limits(y=0)+
+    xlab(varname)+ylab("gs")
+
+p4 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_chi), col="magenta", size=1)+
+  geom_line(aes(x = var, y = out_analytical_chi), col="grey", size=1)+
+  geom_line(aes(x = var, y = out_hydraulics_chi_jmax_lim), col="violet", size=0.5)+
+  expand_limits(y=0)+
+    xlab(varname)+ylab("chi")
+
+p5 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_jmax), col="goldenrod1", size=1) +
+  expand_limits(y=0)+
+    xlab(varname)+ylab("Jmax")
+
+p6 <- df_w_vol %>%
+  ggplot() +
+  geom_line(aes(x = var, y = out_hydraulics_a), col="green4", size=1) +
+  geom_line(aes(x = var, y = out_analytical_gpp), col="grey",size=1) +
+  expand_limits(y=0)+
+    xlab(varname)+ylab("A")
+
+if (!is.null(ref)){
+  p1 <- p1 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_vcmax), col="green4", size=1) 
+  p2 <- p2 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_dpsi), col="blue4", size=1) 
+  p3 <- p3 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_gs), col="cyan3", size=1) 
+  p4 <- p4 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_chi), col="magenta4", size=1) 
+  p5 <- p5 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_jmax), col="orange4", size=1) 
+  p6 <- p6 +
+    geom_point(data=ref, aes(x = var, y = out_hydraulics_a), col="darkgreen", size=1) + expand_limits(y=0)  
+}
+
+grid.arrange(p1,p2,p3,p4,p5,p6, ncol=2)
+
+}
+
+```
+
+### Prorotype plant parameters
+
+```{r echo=T}
+par_plant_proto_pm = list(
+  Ks0=1e-12, 
+  v_huber=1e-4, 
+  conductivity_scalar=3, 
+  height=10, 
+  psi50 = -2, 
+  b=2
+)
+
+par_plant_proto_lc = list(
+  Ks0=1e-12, 
+  v_huber=1e-4, 
+  conductivity_scalar=.8, 
+  height=10, 
+  psi50 = -2, 
+  b=2
+)
+```
+
+
+## Soil moisture response 
+
+Here is a comparison of the hydraulic P-model (line - analytical, points - numerical) with the classic P-model (grey):
+```{r}
+dat_soilm = tibble(var=seq(-6,0,length.out=50)) %>% 
+  mutate(out = purrr::map(var, ~pmodel_calibrate(tc = 25, ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = ., rdark = 0.02, par_plant = par_plant_proto_pm)) ) %>% 
+  unnest_wider(out) %>%  
+  unnest_wider(out_hydraulics, names_sep = "_") %>%  
+  unnest_wider(out_analytical, names_sep = "_") 
+
+dat_soilm_numerical = tibble(var=seq(-6,0,length.out=20)) %>%
+  mutate(out_hydraulics = purrr::map(var, ~pmodel_hydraulics_numerical(tc = 25, ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = ., rdark = 0.02, par_plant = par_plant_proto_pm)) ) %>%
+  unnest_wider(out_hydraulics, names_sep = "_")
+
+dat_soilm %>% 
+  plot_all("psi_soil", ref = dat_soilm_numerical)
+
+```
+
+
+
+### Temperature response
+
+```{r}
+tibble(var=seq(5,35,length.out=50)) %>%
+  mutate(out = purrr::map(var, ~pmodel_calibrate(tc = ., ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark = 0, par_plant_proto_pm)) ) %>% 
+  unnest_wider(out) %>%  
+  unnest_wider(out_hydraulics, names_sep = "_") %>%  
+  unnest_wider(out_analytical, names_sep = "_") %>% 
+  plot_all("Temperature")
+```
