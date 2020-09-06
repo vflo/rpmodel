@@ -36,7 +36,7 @@ plant_traits = list(
   v_huber=1e-4,           #	
   height=10,              # m
   # hydraulic traits
-  conductivity_scalar=3,  # Leaf conductivity (x 10^-15 m2) 
+  conductivity_scalar=3,  # Leaf conductivity (x 10^-17 m2) 
   psi50 = -2,             # Leaf P50 (Mpa)
   b=2                     # Slope of leaf vulnerability curve 
 )
