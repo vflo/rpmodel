@@ -51,7 +51,7 @@ derivatives = function(x, psi_soil, par_photosynth, par_plant, par_env, par_cost
   
   dP_dx = -gs*ca - par_cost$alpha * calc_djmax_dAjmax(ajmax, par_photosynth) * calc_dAjmax_dchi(gs, X, par_photosynth)
   
-  dP_ddpsi = gsprime*ca*(1-X) - par_cost$alpha * calc_djmax_dAjmax(ajmax, par_photosynth) * calc_dAjmax_ddpsi(gsprime, X, par_photosynth) - 2*par_cost$gamma*dpsi/par_plant$psi50^2
+  dP_ddpsi = gsprime*ca*(1-X) - par_cost$alpha * calc_djmax_dAjmax(ajmax, par_photosynth) * calc_dAjmax_ddpsi(gsprime, X, par_photosynth) - 2*par_cost$gamma*dpsi #/par_plant$psi50^2
   # cat(c(dP_dx, dP_ddpsi), "\n")
   c(dP_dx, dP_ddpsi)
 }

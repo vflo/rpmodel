@@ -34,12 +34,12 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, p
     if (opt_hypothesis == "PM"){
       par_cost_now = list(
         alpha = 0.1,       # cost of Jmax
-        gamma = 4          # cost of hydraulic repair
+        gamma = 1          # cost of hydraulic repair
       )
     } else if (opt_hypothesis == "LC"){
       par_cost_now = list(
         alpha = .1,        # cost of Jmax
-        gamma = 2          # cost of hydraulic repair
+        gamma = 0.5          # cost of hydraulic repair
       )
     }
   }

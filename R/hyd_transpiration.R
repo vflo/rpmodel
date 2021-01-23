@@ -1,12 +1,11 @@
+calc_conductivity_m = function(sapwood_perm, hv, height){
+  sapwood_perm*hv/height
+}
+
 ## Returns conductivity in mol/m2/s/Mpa
-calc_conductivity = function(par_plant, par_env){
-  # Permeability (m2)
-  K0 = par_plant$conductivity_scalar * par_plant$Ks0 * par_plant$v_huber 
-  # Conductivity for given pathlength (Height / Leaf thickness) (m2/m = m3/m2)
-  K1 = K0 / par_plant$height 
-  
+scale_conductivity = function(K, par_env){
   # Flow rate in m3/m2/s/Pa
-  K2 = K1 / par_env$viscosity_water
+  K2 = K / par_env$viscosity_water
   
   # Flow rate in mol/m2/s/Pa
   mol_h20_per_kg_h20 = 55.5
@@ -42,7 +41,7 @@ integral_P = function(dpsi, psi_soil, psi50, b, ...){
 #' @export
 #'
 calc_gs = function(dpsi, psi_soil, par_plant, par_env, ...){
-  K = calc_conductivity(par_plant, par_env)
+  K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   K/1.6/D * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
   
@@ -50,7 +49,7 @@ calc_gs = function(dpsi, psi_soil, par_plant, par_env, ...){
 
 ## Derivative of gs wrt dpsi (mol/m2/s/Mpa)
 calc_gsprime = function(dpsi, psi_soil, par_plant, par_env){
-  K = calc_conductivity(par_plant, par_env)
+  K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   K/1.6/D*P(psi_soil-dpsi, par_plant$psi50, par_plant$b)
 }
@@ -65,7 +64,7 @@ calc_gsprime_numerical = function(dpsi, psi_soil, par_plant, par_env, ...){
 
 #'@describeIn calc_gs Transpiration calculated as 1.6*gs*D (mol/m2/s)
 calc_transpiration = function(dpsi, psi_soil, par_plant, par_env, ...){
-  K = calc_conductivity(par_plant, par_env)
+  K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   K * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
 }

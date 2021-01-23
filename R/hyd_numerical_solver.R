@@ -65,7 +65,7 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
   vcmax = calc_vcmax_coordinated_numerical(a,ci, par_photosynth)
   
   costs = par_cost$alpha * jmax + 
-    par_cost$gamma * ((abs((-dpsi)/par_plant$psi50)))^2  
+    par_cost$gamma * dpsi^2 #((abs((-dpsi)/par_plant$psi50)))^2  
   
   benefit = 1 #(1+1/(par_photosynth$ca/40.53))/2
   

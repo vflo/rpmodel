@@ -19,9 +19,9 @@ library(tidyr)
 library(ggplot2)
 library(gridExtra)
 library(scales)
-library(rpmodel)
+#library(rpmodel)
 
-# source("QUADP.R")
+source("../R/QUADP.R")
 
 knitr::opts_chunk$set(echo = T)
 
@@ -37,10 +37,11 @@ readLines_nodocs <- function(file){
 
 ```{r}
 par_plant_std = list(
-  Ks0=1e-12,              # m2
-  v_huber=1e-4,           #
-  height=10,              # m
-  conductivity_scalar=3,  # Scales (Ks0*v_huber/H)
+  # Ks0=1e-12,              # m2
+  # v_huber=1e-4,           #
+  # height=10,              # m
+  # conductivity_scalar=3,  # Scales (Ks0*v_huber/H)
+  conductivity = 3e-17,
   psi50 = -2,             # Mpa
   b=2                    # 
 )
@@ -138,7 +139,7 @@ $$
 For simplicity, let us we club the net conductivity of the stem and leaf into single variables, and express the water potential difference from petiole to leaf as $\Delta \psi$: 
 
 $$
-Q = -K_{S}\int_{\psi_s}^{\psi_p = \psi_s -\Delta\psi_s} P_s(\psi) d\psi = -K_{L} \int_{\psi_p}^{\psi_p-\Delta \psi} P(\psi) d\psi = 1.6g_sD
+Q = -\frac{K_{S}}{\eta}\int_{\psi_s}^{\psi_p = \psi_s -\Delta\psi_s} P_s(\psi) d\psi = -\frac{K_{L}}{\eta} \int_{\psi_p}^{\psi_p-\Delta \psi} P(\psi) d\psi = 1.6g_sD
 $$
 
 Given $\Delta\psi$, this gives us two nonlinear simultaneous equations which can be solved iteratively for $g_s$ and $\psi_p$. However, if we make a simplifying assumption as described below, we can solve for $g_s$ analytically.
@@ -153,7 +154,7 @@ There is increasing evidence that the leaf is the hydraulic bottleneck in the fl
 With the above simplifications, we can express $g_s$ in terms of $\Delta \psi$ as 
 
 $$
-g_s = -\frac{K_L}{1.6D}\int_{\psi_s}^{\psi_s-\Delta\psi}P(\psi)d\psi
+g_s = -\frac{K_L}{1.6D\eta}\int_{\psi_s}^{\psi_s-\Delta\psi}P(\psi)d\psi
 $$
 
 We further note that due to the water balance condition, $g_s$ is independent of $\chi$.
@@ -474,7 +475,7 @@ Lets see the behaviour of the profit function. Does it have a maximum? How about
 
 ```{r}
 dat <- tibble(dpsi=seq(0.001,3, length.out=50), logjmax = seq(-2.5,6, length.out=50)) %>%  purrr::cross_df() %>% 
-  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="PM"))) %>% unnest(cols = profit) 
+  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5/4), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="PM"))) %>% unnest(cols = profit) 
 
 p1 = dat %>% 
   ggplot(aes(dpsi, logjmax)) +
@@ -484,7 +485,7 @@ p1 = dat %>%
   ggtitle("PM")
 
 dat1 <- tibble(dpsi=seq(0.001,3, length.out=50), logjmax = seq(-2.5,6, length.out=50)) %>%  purrr::cross_df() %>% 
-  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="LC"))) %>% unnest(cols = profit) 
+  mutate(profit = map2(logjmax, dpsi, ~fn_profit(c(.x, .y), psi_soil=0, par_cost = list(alpha=0.01, gamma=5/4), get_std_photosythnesis_params(), par_plant_std, par_env_std, do_optim = FALSE, opt_hypothesis="LC"))) %>% unnest(cols = profit) 
 
 p2 = dat1 %>% 
   ggplot(aes(dpsi, logjmax)) +
@@ -526,7 +527,8 @@ pmodel_wang17 = function(tc, ppfd, vpd, co2, elv, fapar, kphio, ...){
   return(list_modify(out_analytical,
                        gs = out_analytical$gs/86400*rpmodel::calc_patm(elv), # mol/m2/day/Pa --> mol/m2/s
                        gpp = out_analytical$gpp/1.03772448,  # gC/m2/day --> umol/m2/s
-                       vcmax = out_analytical$vcmax/0.0864   # mol/m2/day --> umol/m2/s
+                       vcmax = out_analytical$vcmax/0.0864,   # mol/m2/day --> umol/m2/s
+                       jmax = out_analytical$jmax/0.0864   # mol/m2/day --> umol/m2/s
                       )
   )
 }
@@ -559,46 +561,67 @@ pmodel_calibrate_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, ps
 
 ```{r echo=F}
 plot_all = function(df_w_vol, varname, ref=NULL){
+
+    my_theme = function(){
+      theme_classic()+
+      theme(axis.text=element_text(size=14),
+        axis.title=element_text(size=14),
+        plot.tag.position = "topleft")
+  }
+
   p1 <- df_w_vol %>%
   ggplot() +
+    my_theme()+
   geom_line(aes(x = var, y = out_hydraulics_vcmax), col="green3", size=1) +
   geom_line(aes(x = var, y = out_analytical_vcmax ), col="grey", size=1) +
   expand_limits(y=0)+
-    xlab(varname)+ylab("Vcmax")
+    xlab(varname)+
+    ylab(expression(atop(V["cmax"],"("*mu*"mol/m"^2*"/s)")))
 
 p2 <- df_w_vol %>%
   ggplot() +
+    my_theme()+
   geom_line(aes(x = var, y = out_hydraulics_dpsi), col="blue", size=1)+
   expand_limits(y=0)+
-    xlab(varname)+ylab("Dpsi")
+    xlab(varname)+
+  ylab(expression(atop(Delta*psi,"(MPa)")))
 
 p3 <- df_w_vol %>%
   ggplot() +
+  my_theme()+
   geom_line(aes(x = var, y = out_hydraulics_gs), col="cyan2", size=1)+
   geom_line(aes(x = var, y = out_analytical_gs), col="grey", size=1)+
   expand_limits(y=0)+
-    xlab(varname)+ylab("gs")
+    xlab(varname)+
+  ylab(expression(atop(g[s],"(mol/m"^2*"/s)")))
 
 p4 <- df_w_vol %>%
   ggplot() +
+    my_theme()+
   geom_line(aes(x = var, y = out_hydraulics_chi), col="magenta", size=1)+
   geom_line(aes(x = var, y = out_analytical_chi), col="grey", size=1)+
   geom_line(aes(x = var, y = out_hydraulics_chi_jmax_lim), col="violet", size=0.5)+
   expand_limits(y=0)+
-    xlab(varname)+ylab("chi")
+    xlab(varname)+
+  ylab(expression(chi))
 
 p5 <- df_w_vol %>%
   ggplot() +
+    my_theme()+
+  geom_line(aes(x = var, y = out_analytical_jmax), col="grey", size=1) +
   geom_line(aes(x = var, y = out_hydraulics_jmax), col="goldenrod1", size=1) +
   expand_limits(y=0)+
-    xlab(varname)+ylab("Jmax")
+  xlab(varname)+
+  ylab(expression(atop(J["max"],"("*mu*"mol/m"^2*"/s)")))
 
 p6 <- df_w_vol %>%
   ggplot() +
+    my_theme()+
   geom_line(aes(x = var, y = out_hydraulics_a), col="green4", size=1) +
   geom_line(aes(x = var, y = out_analytical_gpp), col="grey",size=1) +
   expand_limits(y=0)+
-    xlab(varname)+ylab("A")
+    xlab(varname)+
+  ylab(expression(atop(A,"("*mu*"mol/m"^2*"/s)")))
 
 if (!is.null(ref)){
   p1 <- p1 +
@@ -615,7 +638,7 @@ if (!is.null(ref)){
     geom_point(data=ref, aes(x = var, y = out_hydraulics_a), col="darkgreen", size=1) + expand_limits(y=0)  
 }
 
-grid.arrange(p1,p2,p3,p4,p5,p6, ncol=2)
+ list(p6, p1, p5, p4, p3, p2)
 
 }
 
@@ -625,19 +648,21 @@ grid.arrange(p1,p2,p3,p4,p5,p6, ncol=2)
 
 ```{r echo=T}
 par_plant_proto_pm = list(
-  Ks0=1e-12, 
-  v_huber=1e-4, 
-  conductivity_scalar=3, 
-  height=10, 
+  # Ks0=1e-12, 
+  # v_huber=1e-4, 
+  # conductivity_scalar=3, 
+  # height=10, 
+  conductivity = 3e-17,
   psi50 = -2, 
   b=2
 )
 
 par_plant_proto_lc = list(
-  Ks0=1e-12, 
-  v_huber=1e-4, 
-  conductivity_scalar=.8, 
-  height=10, 
+  # Ks0=1e-12, 
+  # v_huber=1e-4, 
+  # conductivity_scalar=.8, 
+  # height=10, 
+  conductivity = 8e-17,
   psi50 = -2, 
   b=2
 )
@@ -648,6 +673,8 @@ par_plant_proto_lc = list(
 
 Here is a comparison of the hydraulic P-model (line - analytical, points - numerical) with the classic P-model (grey):
 ```{r}
+l = list()
+
 dat_soilm = tibble(var=seq(-6,0,length.out=50)) %>% 
   mutate(out = purrr::map(var, ~pmodel_calibrate(tc = 25, ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = ., rdark = 0.02, par_plant = par_plant_proto_pm)) ) %>% 
   unnest_wider(out) %>%  
@@ -658,20 +685,193 @@ dat_soilm_numerical = tibble(var=seq(-6,0,length.out=20)) %>%
   mutate(out_hydraulics = purrr::map(var, ~pmodel_hydraulics_numerical(tc = 25, ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = ., rdark = 0.02, par_plant = par_plant_proto_pm)) ) %>%
   unnest_wider(out_hydraulics, names_sep = "_")
 
-dat_soilm %>% 
-  plot_all("psi_soil", ref = dat_soilm_numerical)
+l1= dat_soilm %>% 
+  plot_all(expression(psi["s"]~"(MPa)"), ref = dat_soilm_numerical)
+l = c(l, l1)
+
+cowplot::plot_grid(plotlist = l1, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=T)
 
 ```
-
-
 
 ### Temperature response
 
 ```{r}
-tibble(var=seq(5,35,length.out=50)) %>%
+d = tibble(var=seq(5,35,length.out=50)) %>%
   mutate(out = purrr::map(var, ~pmodel_calibrate(tc = ., ppfd = 300, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark = 0, par_plant_proto_pm)) ) %>% 
   unnest_wider(out) %>%  
   unnest_wider(out_hydraulics, names_sep = "_") %>%  
   unnest_wider(out_analytical, names_sep = "_") %>% 
-  plot_all("Temperature")
+  plot_all(expression("T ("^"o"*"C)"))
+
+l = c(l,d)
+cowplot::plot_grid(plotlist = d, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=T)
+```
+
+
+
+### VPD response
+
+```{r}
+dat = tibble(var=exp(seq(log(5),log(5000),length.out=50))/1000) %>%
+  mutate(out = purrr::map(var, ~pmodel_calibrate_numerical(tc = 25, ppfd = 300, vpd = .*1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark = 0, par_plant = par_plant_proto_pm )) ) %>%    
+  unnest_wider(out) %>%  
+  unnest_wider(out_hydraulics, names_sep = "_") %>%  
+  unnest_wider(out_analytical, names_sep = "_") 
+
+l1 = dat %>% plot_all("VPD (kPa)")
+l = c(l, l1)
+cowplot::plot_grid(plotlist = l1, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=T)
+```
+
+
+### CO2 response
+
+```{r}
+dat = tibble(var=seq(100,800,length.out=50)) %>%
+  mutate(out = purrr::map(var, ~pmodel_calibrate_numerical(tc = 25, ppfd = 300, vpd = 1000, co2 = ., elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark = 0, par_plant_proto_pm)) ) %>%  
+  unnest_wider(out) %>%  
+  unnest_wider(out_hydraulics, names_sep = "_") %>%  
+  unnest_wider(out_analytical, names_sep = "_") 
+
+l1 = dat %>% plot_all(expression("CO"[2]~"(ppm)"))
+l = c(l, l1)
+cowplot::plot_grid(plotlist = d, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=T)
+
+
+# plot(y=dat$out_hydraulics_vcmax/dat$out_hydraulics_jmax, x=dat$var, ylab="Vcmax/Jmax", xlab="CO2")
+  
+```
+
+
+### Light response
+
+```{r}
+dat = tibble(var=seq(200,1500,length.out=30)) %>%
+  mutate(out = purrr::map(var, ~pmodel_calibrate_numerical(tc = 25, ppfd = ., vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark = 0, par_plant_proto_pm)) ) %>%    
+  unnest_wider(out) %>%  
+  unnest_wider(out_hydraulics, names_sep = "_") %>%  
+  unnest_wider(out_analytical, names_sep = "_") 
+
+l1 = dat %>% plot_all(expression("I"["abs"]~"("*mu*"mol/m"^2*"/s)"))
+l = c(l, l1)
+cowplot::plot_grid(plotlist = d, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=T)
+```
+
+
+
+```{r}
+nsets = length(l)/6
+
+# png(paste0("resp_to_vars.png"), height = 1200*3, width = 300*nsets*3, res=300)
+# cowplot::plot_grid(plotlist = l, labels="", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=6, byrow=F)
+# dev.off()
+
+```
+
+
+### Cost response
+
+All variables depend strongly on the cost of $J_\mathrm{max}$, whereas only $g_s$ and $\Delta \psi$ depend on the hydraulic costs.
+
+```{r}
+dat = list(alpha=seq(0.02,0.2,length.out=20), gamma = c(1,4,8)) %>% cross_df() %>%
+  mutate(out = purrr::map2(alpha, gamma, ~pmodel_calibrate_numerical(tc = 25, ppfd = 1200, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = 0, rdark=0, par_plant_proto_pm, par_cost = list(alpha=.x, gamma=.y))) ) %>%   unnest_wider(out) %>% 
+  unnest_wider(out_hydraulics, names_sep = "_")
+```
+
+```{r echo=F}
+mytheme = function(){
+    theme_classic()+
+theme(axis.text=element_text(size=14),
+      axis.title=element_text(size=16),
+      plot.tag.position = "topleft")
+}
+
+p1 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_vcmax, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab(expression(V["cmax"]))+
+  labs(color=expression(gamma))
+
+p2 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_dpsi, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab(expression(Delta*psi))+
+  labs(color=expression(gamma))
+
+
+p3 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_gs, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab(expression(g[s]))+
+  labs(color=expression(gamma))
+
+
+p4 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_chi, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab(expression(chi))+
+  labs(color=expression(gamma))
+
+
+
+p5 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_jmax, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab(expression(J[max]))+
+  labs(color=expression(gamma))
+
+
+
+p6 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = alpha, y = out_hydraulics_a, group=gamma, colour=factor(gamma)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(alpha))+ylab("A")+
+  labs(color=expression(gamma))
+
+
+# pdf(file = "cost_response.pdf", width = 6.8, height=6.9)
+cowplot::plot_grid(p6,p1,p5,p4,p2,p3, labels="AUTO", label_size = 16, label_colour = "grey50", label_x = 0.3, hjust = 0, align = "hv", rel_widths = 1, nrow=3, byrow=F)
+# dev.off()
+```
+
+
+```{r}
+dat = list(psi_s = seq(-2,0,length.out=20), b = c(0.5,1.8,8)) %>% cross_df() %>%
+  mutate(out = purrr::map2(psi_s, b, ~pmodel_calibrate_numerical(tc = 25, ppfd = 1200, vpd = 1000, co2 = 400, elv = 0, fapar = 0.7, kphio = 0.087, psi_soil = .x, rdark=0, list_modify(par_plant_proto_pm, b=.y), par_cost = list(alpha=.1, gamma=.5))) ) %>%   unnest_wider(out) %>% 
+  unnest_wider(out_hydraulics, names_sep = "_")
+```
+
+```{r}
+p2 <- dat %>%
+  ggplot() +
+  mytheme()+
+  geom_line(aes(x = psi_s, y = out_hydraulics_dpsi, group=factor(b), colour=factor(b)), size=1) +
+  expand_limits(y=0)+
+      scale_color_viridis_d(begin = .1, end=.8)+
+    xlab(expression(psi[s]))+ylab(expression(Delta*psi))+
+  labs(color="b")
+
+
+p2
+
+
 ```

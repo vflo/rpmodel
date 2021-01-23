@@ -27,7 +27,7 @@ pmodel_hydraulics_analytical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, 
   
   par_plant_now = par_plant
   if (is.null(par_cost)){ 
-    par_cost_now = list(alpha=0.1, gamma=4)
+    par_cost_now = list(alpha=0.1, gamma=1)
   }
   else{ 
     par_cost_now = par_cost
