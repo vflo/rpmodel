@@ -3,7 +3,8 @@
 
 `rpmodel` provides an implementation of the P-model (Prentice et al., 2014; Wang et al., 2017; Stocker et al., 2020) for predicting acclimated photosynthetic parameters, assimilation, and dark respiration rates as a function of the environment. The main function is `rpmodel()` which returns a list of variables that are mutually consistent within the theory of the P-model (see [Usage](./articles/usage.html) ). Further functions used within `rpmodel()` are also provided through the package.
 
-It also provides both analytical and numerical implementations of the hydraulic extension of the P-model (Joshi et al., XXX). See theory [here](https://rpubs.com/jaideep777/pmodel_hydraulics). 
+It also provides both analytical and numerical implementations of the hydraulic extension of the P-model [Joshi et al., 2020](https://www.biorxiv.org/content/10.1101/2020.12.17.423132v1). 
+See theory [here](https://rpubs.com/jaideep777/pmodel_hydraulics). 
 
 ## Usage
 
@@ -31,12 +32,7 @@ To use the hydraulic version, first make a list of the 3 required plant hydrauli
 
 ```r
 plant_traits = list(
-  # legacy parameters, do not change, will be deleted in future versions
-  Ks0=1e-12,              # m2 
-  v_huber=1e-4,           #	
-  height=10,              # m
-  # hydraulic traits
-  conductivity_scalar=3,  # Leaf conductivity (x 10^-17 m2) 
+  conductivity=3e-17,     # Leaf conductivity (m) (for stem, this could be Ks*HV/Height)
   psi50 = -2,             # Leaf P50 (Mpa)
   b=2                     # Slope of leaf vulnerability curve 
 )
@@ -80,7 +76,10 @@ Hydraulics version:
 Jaideep Joshi
 jaideep777@gmail.com
 
+
 ## References
+
+Joshi, J., Stocker, B. D., Hofhansl, F., Zhou, S., Dieckmann, U., & Prentice, I. C. (2020). Towards a unified theory of plant photosynthesis and hydraulics. BioRxiv, 2020.12.17.423132. https://doi.org/10.1101/2020.12.17.423132
 
 Stocker, B. D., Wang, H., Smith, N. G., Harrison, S. P., Keenan, T. F., Sandoval, D., Davis, T., and Prentice, I. C.: P-model v1.0: an optimality-based light use efficiency model for simulating ecosystem gross primary production, Geosci. Model Dev., 13, 1545–1581, https://doi.org/10.5194/gmd-13-1545-2020, 2020.
 
