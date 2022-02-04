@@ -90,7 +90,7 @@ optimise_midterm_multi <- function(fn_profit, psi_soil, par_cost, par_photosynth
   
   out_optim <- optimr::optimr(
     par       = c(logjmax=0, dpsi=1),  
-    lower     = c(-10, .01),
+    lower     = c(-10, .0001),
     upper     = c(10, 1e6),
     fn        = fn_profit,
     psi_soil  = psi_soil,

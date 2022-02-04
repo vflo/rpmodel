@@ -17,11 +17,23 @@ scale_conductivity = function(K, par_env){
   return(K4)  
 }
 
+
 ## Integral of the vulnerabiity curve
 ## integral of P(psi)dpsi  (Mpa)
-integral_P = function(dpsi, psi_soil, psi50, b, ...){
+integral_P_ana = function(dpsi, psi_soil, psi50, b, ...){
+  ps = psi_soil/psi50
+  pl = (psi_soil-dpsi)/psi50
+  l2 = log(2)
+  -(psi50/b)*(l2^(-1/b))*(expint::gammainc(a = 1/b, x = l2*pl^b)-expint::gammainc(a = 1/b, x = l2*ps^b))
+}
+
+integral_P_num = function(dpsi, psi_soil, psi50, b, ...){
   integrate(P, psi50=psi50, b=b, lower = psi_soil, upper = (psi_soil - dpsi), ...)$value
   # -(P(psi_soil, psi50=psi50, b=b)*dpsi) # Linearized version
+}
+
+integral_P_approx = function(dpsi, psi_soil, psi50, b, ...){
+  -dpsi * P(psi_soil-dpsi/2, psi50, b)
 }
 
 
@@ -44,14 +56,24 @@ calc_gs = function(dpsi, psi_soil, par_plant, par_env, ...){
   K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   K/1.6/D * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
+  # # papprox = P(psi_soil-dpsi/2, par_plant$psi50, par_plant$b)
+  # papprox = P(psi_soil, par_plant$psi50, par_plant$b)-Pprime(psi_soil, par_plant$psi50, par_plant$b)*dpsi/2.5
+  # K/1.6/D * dpsi * papprox
   
 }
 
 ## Derivative of gs wrt dpsi (mol/m2/s/Mpa)
-calc_gsprime = function(dpsi, psi_soil, par_plant, par_env){
+calc_gsprime_analytical = function(dpsi, psi_soil, par_plant, par_env){
   K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   K/1.6/D*P(psi_soil-dpsi, par_plant$psi50, par_plant$b)
+}
+
+## Derivative of gs wrt dpsi (mol/m2/s/Mpa)
+calc_gsprime_approx = function(dpsi, psi_soil, par_plant, par_env){
+  K = scale_conductivity(par_plant$conductivity, par_env)
+  D = (par_env$vpd/par_env$patm)
+  K/1.6/D*(P(psi_soil-dpsi/2, par_plant$psi50, par_plant$b) - Pprime(psi_soil-dpsi/2, par_plant$psi50, par_plant$b)*dpsi/2)
 }
 
 
@@ -62,11 +84,14 @@ calc_gsprime_numerical = function(dpsi, psi_soil, par_plant, par_env, ...){
 }
 
 
-#'@describeIn calc_gs Transpiration calculated as 1.6*gs*D (mol/m2/s)
-calc_transpiration = function(dpsi, psi_soil, par_plant, par_env, ...){
-  K = scale_conductivity(par_plant$conductivity, par_env)
-  D = (par_env$vpd/par_env$patm)
-  K * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
-}
+calc_gsprime = calc_gsprime_analytical
+integral_P = integral_P_ana
+
+#' #'@describeIn calc_gs Transpiration calculated as 1.6*gs*D (mol/m2/s)
+#' calc_transpiration = function(dpsi, psi_soil, par_plant, par_env, ...){
+#'   K = scale_conductivity(par_plant$conductivity, par_env)
+#'   D = (par_env$vpd/par_env$patm)
+#'   K * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
+#' }
 
 

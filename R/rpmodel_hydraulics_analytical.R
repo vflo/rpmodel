@@ -33,43 +33,51 @@ pmodel_hydraulics_analytical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, 
     par_cost_now = par_cost
   }
   
-  res = nleqslv::nleqslv(x = c(x=.8, dpsi=.5), 
-                fn = derivatives, 
-                method="Newton", 
-                psi_soil= psi_soil, 
-                par_photosynth = par_photosynth_now, 
-                par_plant = par_plant_now, 
-                par_env = par_env_now, 
-                par_cost = par_cost_now ) #list(alpha=0.1, gamma=4))   
+  # res = nleqslv::nleqslv(x = c(x=.8, dpsi=.5), 
+  #               fn = derivatives, 
+  #               method="Newton", 
+  #               psi_soil= psi_soil, 
+  #               par_photosynth = par_photosynth_now, 
+  #               par_plant = par_plant_now, 
+  #               par_env = par_env_now, 
+  #               par_cost = par_cost_now ) #list(alpha=0.1, gamma=4))   
+  # 
+  # x = res$x[1]
+  # dpsi = res$x[2]
   
-  x = res$x[1]
-  dpsi = res$x[2]
+  dpsi_bounds = calc_dpsi_bound(psi_soil = psi_soil, par_plant = par_plant_now, par_env = par_env_now, par_photosynth = par_photosynth_now, par_cost = par_cost_now)
+  dpsi_max = dpsi_bounds$Iabs_bound
+  u = uniroot(f = function(dpsi){dFdx(dpsi, psi_soil = psi_soil, par_plant = par_plant_now, par_env = par_env_now, par_photosynth = par_photosynth_now, par_cost = par_cost_now)$dP_dx}, interval = c(dpsi_max*0.001, dpsi_max*0.99))
+  dpsi=u$root
+  x = calc_x_from_dpsi(dpsi, psi_soil = psi_soil, par_plant = par_plant_now, par_env = par_env_now, par_photosynth = par_photosynth_now, par_cost = par_cost_now)
+    
+  gs = calc_gs(dpsi, psi_soil, par_plant_now, par_env_now) # In mol/m2/s
   
-  gs_unscaled = calc_gs(dpsi, psi_soil, par_plant_now, par_env_now) # In mol/m2/s
+  J = calc_J(gs, x, par_photosynth_now)
+  Jmax = calc_jmax_from_J(J, par_photosynth_now)
   
-  # Scale by atmospheric pressure since ca is in Pa
-  gs = gs_unscaled*1e6/par_photosynth_now$patm # Now in umol/m2/s/Pa
-  
-  Ajmax = calc_Aj_max(gs, x, par_photosynth_now)
-  Jmax = calc_jmax_from_Ajmax(Ajmax, par_photosynth_now)
-  
-  ca = par_photosynth_now$ca
-  Vcmax = Ajmax*(x*ca + par_photosynth_now$kmm)/(x*ca + 2*par_photosynth_now$gammastar)
+  ca = par_photosynth_now$ca/par_photosynth_now$patm*1e6
+  kmm = par_photosynth_now$kmm/par_photosynth_now$patm*1e6
+  g = par_photosynth_now$gammastar/par_photosynth_now$patm*1e6
+  Vcmax = (J/4)*(x*ca + kmm)/(x*ca + 2*g)
   
   A = gs * ca*(1-x)
   
   return(list(
     jmax=Jmax,
     dpsi=dpsi,
-    gs=gs_unscaled,
+    gs=gs,
     a=A,
     ci=x*par_photosynth_now$ca,
     chi = x,
     chi_jmax_lim = chi_jmax_limited(par_photosynth_now, par_cost_now),
     vcmax=Vcmax,
     profit = A - par_cost_now$alpha*Jmax - par_cost_now$gamma*dpsi^2,
-    niter = res$niter,
-    nfcnt = res$nfcnt
+    niter = 0, #res$niter,
+    nfcnt = 0, #res$nfcnt
+    dpsi_max_exact = dpsi_bounds$exact,
+    dpsi_max_approx = dpsi_bounds$approx_O2,
+    dpsi_max_Iabs_bound = dpsi_bounds$Iabs_bound
   ))
   
   

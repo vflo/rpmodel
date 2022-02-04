@@ -99,13 +99,18 @@ calc_assimilation_limiting = function(vcmax, jmax, gs, par_photosynth){
   # gs = calc_gs(dpsi, psi_soil, par_plant = par_plant, par_env = par_env)
   
   # We need not employ numerical root-finding. calculate chi independently assuming Ac and Aj, and bigger of the two will be the limiting one. Accordingly return Ac or Aj
-  
   Ac = calc_assim_rubisco_limited(gs = gs, vcmax = vcmax, par_photosynth = par_photosynth)
   Aj = calc_assim_light_limited(gs = gs, jmax = jmax, par_photosynth = par_photosynth)
   
+  A = list(ac = Ac$a, aj=Aj$a)
+  
   if (Ac$ci > Aj$ci ){
-    Ac
+    A$ci = Ac$ci
+    A$a  = Ac$a
   } else {
-    Aj
+    A$ci = Aj$ci
+    A$a  = Aj$a
   }
+  
+  A
 }
