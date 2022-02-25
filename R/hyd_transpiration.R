@@ -36,6 +36,10 @@ integral_P_approx = function(dpsi, psi_soil, psi50, b, ...){
   -dpsi * P(psi_soil-dpsi/2, psi50, b)
 }
 
+
+
+integral_P = integral_P_ana
+
 ## Calculation of water parameters
 calc_PM_params <- function(tc, p, nR, LAI){
   #tc air temperature ºC
@@ -84,10 +88,12 @@ calc_ga <- function(u,ustar,R,tc,p){
 #'
 #' @param dpsi numeric, soil-to-leaf water potential difference (\eqn{\psi_s-\psi_l}), Mpa
 #' @param psi_soil numeric, soil water potential, Mpa
-#' @param par_plant numeric, A list of plant hydraulic parameters, which must include ...... 
-#' @param par_env numeric, A list of environmental parameters
+#' @param par_plant numeric, A list of plant hydraulic parameters, which must include LAI 
+#' @param par_env numeric, A list of environmental parameters which must include wind speed (u), 
+#' friction velocity (ustar), net radiation (nR), viscosity_water, density_water, atmospheric pressure (patm), 
+#' air temperature (tc), vapour pressure deficit (vpd)
 #'
-#' @return numeric, canopy stomatal conductance in mol/m2/s
+#' @return numeric, canopy stomatal conductance in molco2 m-2 s-1
 #'
 #'
 #' @export
@@ -100,7 +106,7 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, ...){
   K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
   PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
-  U = par_env$u
+  u = par_env$u
   ustar = par_env$ustar
   R = PM_params$R
   tc = par_env$tc
@@ -114,8 +120,8 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, ...){
   Q = PM_params$Q
   ga = calc_ga(u, ustar, R, tc, patm)
   
-  pch*ga/(1.6*C*(S*Q+dens*cp*pa*R*tc/patm)/
-            (L*(-k*-integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)))
+  pch*ga/(1.6*C*(S*Q+dens*cp*D*ga*R*tc/patm)/
+            (L*(-k*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)))
           -S -pch) #Return Gs in molco2 m-2leaf  s-1
 }
 
@@ -165,9 +171,7 @@ calc_gsprime_numerical = function(dpsi, psi_soil, par_plant, par_env, ...){
   (calc_gs(dpsi+.01, psi_soil, par_plant, par_env, ...)-calc_gs(dpsi, psi_soil, par_plant, par_env, ...))/.01
 }
 
-
 calc_gsprime = calc_gsprime_analytical
-integral_P = integral_P_ana
 
 #' #'@describeIn calc_gs Transpiration calculated as 1.6*gs*D (mol/m2/s)
 #' calc_transpiration = function(dpsi, psi_soil, par_plant, par_env, ...){

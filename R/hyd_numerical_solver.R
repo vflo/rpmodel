@@ -50,13 +50,32 @@ calc_vcmax_coordinated_numerical = function(aj, ci, par_photosynth){
 # - Plant parameters
 # - Env parameters
 # - Optimization hypothesis used (PM or LC)
-fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_env, do_optim = FALSE, opt_hypothesis){
+fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_env, do_optim = FALSE, opt_hypothesis, gs_approximation){
   
   jmax = exp(par[1])  # Jmax in umol/m2/s (logjmax is supplied by the optimizer)
   dpsi = par[2]       # delta Psi in MPa
   
-  gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
-  E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
+  if (gs_approximation == "Ohm"){
+    gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
+    E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
+  } else if (gs_approximation == "PM"){
+    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
+    u = par_env$u
+    ustar = par_env$ustar
+    R = PM_params$R
+    tc = par_env$tc
+    patm = par_env$patm
+    dens = PM_params$air_dens
+    cp =PM_params$cp
+    L = PM_params$L
+    pch = PM_params$pch
+    C = PM_params$C
+    S = PM_params$S
+    Q = PM_params$Q
+    ga = calc_ga(u, ustar, R, tc, patm)
+    gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env)
+    E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
+  }
   
   ## light-limited assimilation
   a_j <- calc_assim_light_limited(gs, jmax, par_photosynth) # Aj in umol/m2/s
@@ -86,7 +105,7 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
   }
 }
 
-optimise_midterm_multi <- function(fn_profit, psi_soil, par_cost, par_photosynth, par_plant, par_env, return_all = FALSE, opt_hypothesis){
+optimise_midterm_multi <- function(fn_profit, psi_soil, par_cost, par_photosynth, par_plant, par_env, return_all = FALSE, opt_hypothesis, gs_approximation){
   
   out_optim <- optimr::optimr(
     par       = c(logjmax=0, dpsi=1),  
@@ -100,6 +119,7 @@ optimise_midterm_multi <- function(fn_profit, psi_soil, par_cost, par_photosynth
     par_env   = par_env,
     do_optim  = TRUE,
     opt_hypothesis = opt_hypothesis,
+    gs_approximation = gs_approximation,
     method    = "L-BFGS-B",
     control   = list( maxit = 500, maximize = TRUE, fnscale=1e4 )
   )

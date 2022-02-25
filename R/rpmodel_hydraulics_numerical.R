@@ -3,7 +3,7 @@
 #' Calculates the carboxylation capacity, as coordinated to a given electron-transport limited assimilation rate.
 #'
 #' @export
-pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM"){
+pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM", gs_approximation = "PM"){
   
   p = rpmodel::calc_patm(elv)
   
@@ -22,7 +22,8 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, p
     density_water = rpmodel::calc_density_h2o(tc, p),  # Needs to be imported from rpmodel.R
     patm = p,
     tc = tc,
-    vpd = vpd
+    vpd = vpd,
+    
   )
   
   par_plant_now = par_plant
@@ -44,14 +45,36 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, p
     }
   }
   
-  lj_dps = optimise_midterm_multi(fn_profit, psi_soil = psi_soil, par_cost  = par_cost_now, par_photosynth = par_photosynth_now, par_plant = par_plant_now, par_env = par_env_now, opt_hypothesis = opt_hypothesis)
+  lj_dps = optimise_midterm_multi(fn_profit, psi_soil = psi_soil, par_cost  = par_cost_now, par_photosynth = par_photosynth_now, 
+                                  par_plant = par_plant_now, par_env = par_env_now, opt_hypothesis = opt_hypothesis, gs_approximation = gs_approximation)
   
-  profit = fn_profit(par = lj_dps, psi_soil = psi_soil, par_cost  = par_cost_now, par_photosynth = par_photosynth_now, par_plant = par_plant_now, par_env = par_env_now, opt_hypothesis = opt_hypothesis)
+  profit = fn_profit(par = lj_dps, psi_soil = psi_soil, par_cost  = par_cost_now, par_photosynth = par_photosynth_now, 
+                     par_plant = par_plant_now, par_env = par_env_now, opt_hypothesis = opt_hypothesis, gs_approximation = gs_approximation)
   
   jmax = exp(lj_dps[1])
   dpsi = lj_dps[2]
   
-  gs = calc_gs(dpsi=dpsi, psi_soil=psi_soil, par_plant = par_plant_now, par_env = par_env_now)
+  if (gs_approximation == "Ohm"){
+    gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
+    E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
+  } else if (gs_approximation == "PM"){
+    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
+    u = par_env$u
+    ustar = par_env$ustar
+    R = PM_params$R
+    tc = par_env$tc
+    patm = par_env$patm
+    dens = PM_params$air_dens
+    cp =PM_params$cp
+    L = PM_params$L
+    pch = PM_params$pch
+    C = PM_params$C
+    S = PM_params$S
+    Q = PM_params$Q
+    ga = calc_ga(u, ustar, R, tc, patm)
+    gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env)
+    E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
+  }
   
   a_j = calc_assim_light_limited(gs = gs, jmax = jmax, par_photosynth = par_photosynth_now)
   a = a_j$a
@@ -63,6 +86,7 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, co2, elv, fapar, kphio, p
     jmax=jmax,
     dpsi=dpsi,
     gs=gs,
+    E=E,
     a=a,
     ci=ci,
     chi = ci/par_photosynth_now$ca,
