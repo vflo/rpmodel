@@ -37,7 +37,11 @@ integral_P_approx = function(dpsi, psi_soil, psi50, b, ...){
 }
 
 ## Calculation of water parameters
-calc_h2O_params <- function(tc, p){
+calc_PM_params <- function(tc, p, nR, LAI){
+  #tc air temperature ºC
+  #p atmospheric pressure Pa
+  #nR surface net rariation J s-1 m-2soil
+  #LAI leaf area index m2leaf m-2soil
   R =  8.31446261815324 #universal gas constant m3 Pa K−1 mol−1
   dry_air_mol = 0.0289647 #kg mol-1
   R_dry_air = R/dry_air_mol # specific dry air gas constant J kg-1 K-1
@@ -55,19 +59,21 @@ calc_h2O_params <- function(tc, p){
   C = 1/h2o_mol_mass #mol kg-1
   # slope of the curve relating saturation vapour pressure to temperature
   S = 4098*(0.6108*exp(17.27*tc/(tc+237.3)))/((237.3+tc)^2) *1000 #FAO Pa K-1
+  Q = nR*(1-exp(-0.5*LAI))/LAI #leaf available enery J s-1 m-2leaf
   
-  df = data.frame(R, dry_air_mol, R_dry_air, air_dens, cp, L, pch)
+  df = data.frame(R, dry_air_mol, R_dry_air, h2o_mol_mass, R_water, air_dens, cp, L, pch, C, S, Q)
   return(df)
 }
 
 ## Calculation of aerodynamic conductance
-calc_ga <- function(u,ustar){
+calc_ga <- function(u,ustar,R,tc,p){
   # u = wind speed m s-1
   # ustar = friction velocity m s-1
+  # ga = aerodynamic conductance molh2o m-2 Pa-1 s-1
   if(is.na(ustar)){
-    1/((u/ustar)+135*ustar^(-0.67)) #Thom 1972 Momentum, mass and heat exchange of vegetation
+    (1/((u/ustar)+135*ustar^(-0.67)))*p/(R*tc) #Thom 1972 Momentum, mass and heat exchange of vegetation
   }else{
-    u/208 #Allen et al 1998 crop evapotranspiration-guidelines for computing crop water requirements
+    (u/208)*p/(R*tc) #Allen et al 1998 crop evapotranspiration-guidelines for computing crop water requirements
   }
 }
 
@@ -87,16 +93,30 @@ calc_ga <- function(u,ustar){
 #' @export
 #'
 calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, ...){
+  # Does the column u exist in par_env? If not, stop the proces and show error
+  if (is.na(par_env$u)|is.null(par_env$u)) {
+    stop("Wind speed (u) must be provided in par_env variable", call. = FALSE)
+  }
   K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
-  h2o_params = calc_h2O_params(par_env$tc,par_env$patm)
-  R = h2o_params$R
-  dens = h2o_params$air_dens
-  cp =h2o_params$cp
-  L = h2o_params$L
-  pch = h2o_params$pch
-  ga = calc_ga(par_env$u, par_env$ustar)
-  K/1.6/D * -integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)
+  PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
+  U = par_env$u
+  ustar = par_env$ustar
+  R = PM_params$R
+  tc = par_env$tc
+  patm = par_env$patm
+  dens = PM_params$air_dens
+  cp =PM_params$cp
+  L = PM_params$L
+  pch = PM_params$pch
+  C = PM_params$C
+  S = PM_params$S
+  Q = PM_params$Q
+  ga = calc_ga(u, ustar, R, tc, patm)
+  
+  pch*ga/(1.6*C*(S*Q+dens*cp*pa*R*tc/patm)/
+            (L*(-k*-integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)))
+          -S -pch) #Return Gs in molco2 m-2leaf  s-1
 }
 
 #' Stomatal conductance and Transpiration
