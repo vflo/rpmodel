@@ -32,8 +32,7 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
   
   if (!is.null(par_cost)){
     par_cost_now = par_cost
-  }
-  else{
+  } else{
     if (opt_hypothesis == "PM"){
       par_cost_now = list(
         alpha = 0.1,       # cost of Jmax
@@ -57,8 +56,8 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
   dpsi = lj_dps[2]
   
   if (gs_approximation == "Ohm"){
-    gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
-    E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
+    gs = calc_gs(dpsi, psi_soil, par_plant, par_env_now)  # gs in mol/m2/s/Mpa
+    E = 1.6*gs*(par_env_now$vpd/par_env_now$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
     PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_plant_now$LAI)
     u = par_env_now$u
@@ -73,9 +72,11 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
     C = PM_params$C
     S = PM_params$S
     Q = PM_params$Q
+    vpd = par_env_now$vpd
+    D = vpd/patm
     ga = calc_ga(u, ustar, R, tc, patm)
-    gs = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now)
-    E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
+    gs = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now, PM_params)
+    E = C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))*1e6 # E in umol/m2/s
   }
   
   a_j = calc_assim_light_limited(gs = gs, jmax = jmax, par_photosynth = par_photosynth_now)

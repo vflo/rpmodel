@@ -98,14 +98,13 @@ calc_ga <- function(u,ustar,R,tc,p){
 #'
 #' @export
 #'
-calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, ...){
+calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
   # Does the column u exist in par_env? If not, stop the proces and show error
   if (is.na(par_env$u)|is.null(par_env$u)) {
     stop("Wind speed (u) must be provided in par_env variable", call. = FALSE)
   }
   K = scale_conductivity(par_plant$conductivity, par_env)
   D = (par_env$vpd/par_env$patm)
-  PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
   u = par_env$u
   ustar = par_env$ustar
   R = PM_params$R
@@ -120,8 +119,8 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, ...){
   Q = PM_params$Q
   ga = calc_ga(u, ustar, R, tc, patm)
   
-  pch*ga/(1.6*C*(S*Q+dens*cp*D*ga*R*tc/patm)/
-            (L*(-k*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)))
+  pch*ga/(1.6*C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/
+            (L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...)))
           -S -pch) #Return Gs in molco2 m-2leaf  s-1
 }
 

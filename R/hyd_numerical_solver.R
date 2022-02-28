@@ -37,6 +37,7 @@ calc_vcmax_coordinated_numerical = function(aj, ci, par_photosynth){
 #' @param par_photosynth numeric, Photosynthesis parameters
 #' @param par_env numeric, Environmental parameters
 #' @param opt_hypothesis character, Either "Lc" or "PM"
+#' @param gs_approximation character, Either "Ohm" or "PM". Ohm is used when gs is calculated as ohm approximation and PM is used when gs is calculated using Penman-Monteith
 #'
 #' @return Net assimilation rate after accounting for costs (profit) (umol/m2/s)
 #'
@@ -72,8 +73,9 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
     C = PM_params$C
     S = PM_params$S
     Q = PM_params$Q
+    D = par_env$vpd/par_env$patm
     ga = calc_ga(u, ustar, R, tc, patm)
-    gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env)
+    gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
     E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
   }
   
