@@ -71,16 +71,36 @@ tibble( dpsi = seq(0, 5, length.out = 30)) %>%
   labs( title = "Total conductance as a function of leaf water potential" )
 ```
 
-Specify plant hydraulic parameters that are held constant at the subdaily to annual time scale.
+Specify plant hydraulic parameters that are held constant at the subdaily to annual time scale. We also specify, constant environmental parameters.
 ```{r}
 par_plant_std = list(
     Ks0=1e-12, 
     v_huber=1e-4, 
-    height=10, 
+    height=10,
+    LAI = 2,
     conductivity_scalar=1,  # Scales (Ks0*v_huber/H)
     psi50 = -2, 
     b=2
     )
+
+  p = 100000
+  tc = 25
+
+par_env_std = list(
+  ppfd <- 800,
+  vpd  <- 1000,
+  u <- 2,
+  ustar <- 0.05,
+  nR <- 500,
+  co2  <- 400,
+  elv  <- 0,
+  fapar <- 1,
+  p = p,
+  tc = tc,
+  viscosity_water = rpmodel::calc_viscosity_h2o(tc, p),  # Needs to be imported from rpmodel.R
+  density_water = rpmodel::calc_density_h2o(tc, p) # Needs to be imported from rpmodel.R
+)
+
 ```
 
 With these parameters, typical $E$ (per unit leaf area) would be around:
@@ -94,9 +114,9 @@ cat("E = ", E, " m^3/m2/s", "\n",
 "E = ", E*m_per_s_to_mm_per_day*365, " mm/year", sep = "")
 ```
 
-Thus, a forest with $LAI = 4$ will transpire 
+Thus, a forest with $LAI = 2$ will transpire 
 ```{r}
-cat("E_forest = ", E*m_per_s_to_mm_per_day*365*4 ," mm/year")
+cat("E_forest = ", E*m_per_s_to_mm_per_day*365*2," mm/year")
 ```
 
 The dependence of $E$ on soil water potential and the soil-to-leaf water potential difference $\Delta \Psi$ is given by:
@@ -136,7 +156,7 @@ $$
 calc_gs_star <- function(psi_soil, vpd, viscosity, dpsi_star, v_huber, par, par_conductivity){
   (v_huber * par$conductivity_base / (1.6 * par$height * viscosity * vpd)) * calc_conductance(dpsi = dpsi_star, psi_soil = psi_soil, par = par_conductivity_std) 
 }
-# par_conductance_std <- list(conductivity_base = 1, height = 1 )
+par_conductance_std <- list(conductivity_base = 1, height = 1 )
 ```
 
 ### Response to soil drying
