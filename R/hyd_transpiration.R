@@ -64,6 +64,7 @@ calc_PM_params <- function(tc, p, nR, LAI){
   # slope of the curve relating saturation vapour pressure to temperature
   S = 4098*(0.6108*exp(17.27*tc/(tc+237.3)))/((237.3+tc)^2) *1000 #FAO Pa K-1
   Q = nR*(1-exp(-0.5*LAI))/LAI #leaf available enery J s-1 m-2leaf
+  if(Q<0){Q=0}
   
   df = data.frame(R, dry_air_mol, R_dry_air, h2o_mol_mass, R_water, air_dens, cp, L, pch, C, S, Q)
   return(df)
@@ -74,7 +75,7 @@ calc_ga <- function(u,ustar,R,tc,p){
   # u = wind speed m s-1
   # ustar = friction velocity m s-1
   # ga = aerodynamic conductance molh2o m-2 Pa-1 s-1
-  if(is.na(ustar)){
+  if(!is.na(ustar)){
     (1/((u/ustar)+135*ustar^(-0.67)))*p/(R*tc) #Thom 1972 Momentum, mass and heat exchange of vegetation
   }else{
     (u/208)*p/(R*tc) #Allen et al 1998 crop evapotranspiration-guidelines for computing crop water requirements
@@ -104,12 +105,13 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
     stop("Wind speed (u) must be provided in par_env variable", call. = FALSE)
   }
   K = scale_conductivity(par_plant$conductivity, par_env)
-  D = (par_env$vpd/par_env$patm)
+  vpd = par_env$vpd
+  patm = par_env$patm
+  D = (vpd/patm)
   u = par_env$u
   ustar = par_env$ustar
   R = PM_params$R
   tc = par_env$tc
-  patm = par_env$patm
   dens = PM_params$air_dens
   cp =PM_params$cp
   L = PM_params$L

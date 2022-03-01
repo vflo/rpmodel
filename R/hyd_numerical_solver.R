@@ -61,22 +61,8 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
     E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
     PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
-    u = par_env$u
-    ustar = par_env$ustar
-    R = PM_params$R
-    tc = par_env$tc
-    patm = par_env$patm
-    dens = PM_params$air_dens
-    cp =PM_params$cp
-    L = PM_params$L
-    pch = PM_params$pch
-    C = PM_params$C
-    S = PM_params$S
-    Q = PM_params$Q
-    D = par_env$vpd/par_env$patm
-    ga = calc_ga(u, ustar, R, tc, patm)
+    ga = calc_ga(par_env$u, par_env$ustar, PM_params$R, par_env$tc, par_env$patm)
     gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
-    E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
   }
   
   ## light-limited assimilation

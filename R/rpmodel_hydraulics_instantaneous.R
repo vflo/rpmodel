@@ -44,9 +44,32 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, co2, elv, fapar, kphi
     }
   }
   
-  dpsi = optimise_shortterm(fn_profit_instantaneous, jmax=jmax, vcmax=vcmax, psi_soil = psi_soil, par_cost  = par_cost_now, par_photosynth = par_photosynth_now, par_plant = par_plant_now, par_env = par_env_now)
+  dpsi = optimise_shortterm(fn_profit_instantaneous, jmax=jmax, vcmax=vcmax, psi_soil = psi_soil, par_cost  = par_cost_now,
+                            par_photosynth = par_photosynth_now, par_plant = par_plant_now, par_env = par_env_now, gs_approximation = gs_approximation)
   
-  gs = calc_gs(dpsi, psi_soil, par_plant_now, par_env_now)
+  if (gs_approximation == "Ohm"){
+    gs = calc_gs(dpsi, psi_soil, par_plant, par_env_now)  # gs in mol/m2/s/Mpa
+    E = 1.6*gs*(par_env_now$vpd/par_env_now$patm)*1e6         # E in umol/m2/s
+  } else if (gs_approximation == "PM"){
+    PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_plant_now$LAI)
+    u = par_env_now$u
+    ustar = par_env_now$ustar
+    R = PM_params$R
+    tc = par_env_now$tc
+    patm = par_env_now$patm
+    dens = PM_params$air_dens
+    cp =PM_params$cp
+    L = PM_params$L
+    pch = PM_params$pch
+    C = PM_params$C
+    S = PM_params$S
+    Q = PM_params$Q
+    vpd = par_env_now$vpd
+    D = vpd/patm
+    ga = calc_ga(u, ustar, R, tc, patm)
+    gs = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now, PM_params)
+    E = C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))*1e6 # E in umol/m2/s
+  }
   
   a_l = calc_assimilation_limiting(vcmax, jmax, gs, par_photosynth_now)
   
