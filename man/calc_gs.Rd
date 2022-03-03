@@ -2,12 +2,9 @@
 % Please edit documentation in R/hyd_transpiration.R
 \name{calc_gs}
 \alias{calc_gs}
-\alias{calc_transpiration}
 \title{Stomatal conductance and Transpiration}
 \usage{
 calc_gs(dpsi, psi_soil, par_plant, par_env, ...)
-
-calc_transpiration(dpsi, psi_soil, par_plant, par_env, ...)
 }
 \arguments{
 \item{dpsi}{numeric, soil-to-leaf water potential difference (\eqn{\psi_s-\psi_l}), Mpa}
@@ -25,8 +22,3 @@ numeric, stomatal conductance in mol/m2/s
 Calculates regulated stomatal conducatnce given the leaf water potential, 
 plant hydraulic traits, and the environment.
 }
-\section{Functions}{
-\itemize{
-\item \code{calc_transpiration}: Transpiration calculated as 1.6*gs*D (mol/m2/s)
-}}
-

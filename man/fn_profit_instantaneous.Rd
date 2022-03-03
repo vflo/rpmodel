@@ -13,6 +13,7 @@ fn_profit_instantaneous(
   par_photosynth,
   par_plant,
   par_env,
+  gs_approximation = gs_approximation,
   do_optim = F
 )
 }

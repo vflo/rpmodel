@@ -12,7 +12,8 @@ fn_profit(
   par_plant,
   par_env,
   do_optim = FALSE,
-  opt_hypothesis
+  opt_hypothesis,
+  gs_approximation
 )
 }
 \arguments{
@@ -27,6 +28,8 @@ fn_profit(
 \item{par_env}{numeric, Environmental parameters}
 
 \item{opt_hypothesis}{character, Either "Lc" or "PM"}
+
+\item{gs_approximation}{character, Either "Ohm" or "PM". Ohm is used when gs is calculated as ohm approximation and PM is used when gs is calculated using Penman-Monteith}
 }
 \value{
 Net assimilation rate after accounting for costs (profit) (umol/m2/s)

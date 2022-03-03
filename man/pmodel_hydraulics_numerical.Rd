@@ -8,6 +8,9 @@ pmodel_hydraulics_numerical(
   tc,
   ppfd,
   vpd,
+  u,
+  ustar,
+  nR,
   co2,
   elv,
   fapar,
@@ -16,7 +19,8 @@ pmodel_hydraulics_numerical(
   rdark = 0,
   par_plant,
   par_cost = NULL,
-  opt_hypothesis = "PM"
+  opt_hypothesis = "PM",
+  gs_approximation = "PM"
 )
 }
 \description{
