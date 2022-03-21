@@ -183,7 +183,7 @@ get_density <- function(x, y, ...) {
   return(dens$z[ii])
 }
 
-colnames(df_total_PM) <- paste(colnames(df_total_Ohm), "PM", sep = "_")
+colnames(df_total_PM) <- paste(colnames(df_total_PM), "PM", sep = "_")
 colnames(df_total_Ohm) <- paste(colnames(df_total_Ohm), "Ohm", sep = "_")
 
 FRA_PUE_df_sub2 %>% 

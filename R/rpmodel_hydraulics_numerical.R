@@ -74,7 +74,8 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
     # D = vpd/patm
     ga = calc_ga(par_env_now$u, par_env_now$ustar, R, tc, patm)
     gs = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now, PM_params)
-    E = C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))*1e6 # E in umol/m2/s
+    E = 1.6*gs*(par_env_now$vpd/par_env_now$patm)*1e6         # E in umol/m2/s
+    # E = C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))*1e6 # E in umol/m2/s
   }
   
   a_j = calc_assim_light_limited(gs = gs, jmax = jmax, par_photosynth = par_photosynth_now)
