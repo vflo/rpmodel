@@ -3,7 +3,7 @@
 #' Instantaneous photosynthesis rates for a given Vcmax and Jmax.
 #'
 #' @export
-pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, vcmax, jmax, opt_hypothesis = "PM"){
+pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, vcmax, jmax, opt_hypothesis = "PM", gs_approximation = "PM"){
   
   p = rpmodel::calc_patm(elv)
   
