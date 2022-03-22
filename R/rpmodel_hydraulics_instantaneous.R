@@ -81,20 +81,39 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, el
   
   profit = a - par_cost_now$gamma*dpsi^2
   
-  return(list(
-    jmax=jmax,
-    dpsi=dpsi,
-    gs=gs,
-    E = E,
-    a=a,
-    ci=ci,
-    ac = a_l$ac,
-    aj = a_l$aj,
-    chi = ci/par_photosynth_now$ca,
-    vcmax=vcmax,
-    profit = profit,
-    chi_jmax_lim = 0
-  ))
+  if (gs_approximation == "Ohm"){
+    return(list(
+      jmax=jmax,
+      dpsi=dpsi,
+      gs=gs,
+      E = E,
+      a=a,
+      ci=ci,
+      ac = a_l$ac,
+      aj = a_l$aj,
+      chi = ci/par_photosynth_now$ca,
+      vcmax=vcmax,
+      profit = profit,
+      chi_jmax_lim = 0
+    ))
+  } else if (gs_approximation == "PM"){
+    return(list(
+      jmax=jmax,
+      dpsi=dpsi,
+      gs=gs,
+      ga = ga,
+      E = E,
+      a=a,
+      ci=ci,
+      ac = a_l$ac,
+      aj = a_l$aj,
+      chi = ci/par_photosynth_now$ca,
+      vcmax=vcmax,
+      profit = profit,
+      chi_jmax_lim = 0
+    ))
+  }
+
   
   
 }
