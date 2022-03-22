@@ -85,6 +85,7 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, el
     jmax=jmax,
     dpsi=dpsi,
     gs=gs,
+    E = E,
     a=a,
     ci=ci,
     ac = a_l$ac,
