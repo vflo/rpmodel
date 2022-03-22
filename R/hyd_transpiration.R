@@ -56,7 +56,7 @@ calc_PM_params <- function(tc, p, nR, LAI){
   # dry air specific heat capacity at constant pressure
   cp = 1012 #J kg-1 K-1
   # Latent heat of water vaporization
-  L =  2500.8-2.36*tc+0.0016*tc^2-0.00006*tc^3 #J kg-1
+  L =  (2500.8-2.36*tc+0.0016*tc^2-0.00006*tc^3)*1000 #J kg-1
   # psychrometric constant
   pch = (p*cp)/(0.622*L) #Pa K-1
   # H2O mol Kg-1
