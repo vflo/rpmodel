@@ -83,18 +83,35 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
   
   vcmax = calc_vcmax_coordinated_numerical(a,ci, par_photosynth_now)
   
-  return(list(
-    jmax=jmax,
-    dpsi=dpsi,
-    gs=gs,
-    E=E,
-    a=a,
-    ci=ci,
-    chi = ci/par_photosynth_now$ca,
-    vcmax=vcmax,
-    # profit = profit,
-    chi_jmax_lim = 0
-  ))
+  if (gs_approximation == "Ohm"){
+    return(list(
+      jmax=jmax,
+      dpsi=dpsi,
+      gs=gs,
+      E=E,
+      a=a,
+      ci=ci,
+      chi = ci/par_photosynth_now$ca,
+      vcmax=vcmax,
+      # profit = profit,
+      chi_jmax_lim = 0
+    ))
+  } else if (gs_approximation == "PM"){
+    return(list(
+      jmax=jmax,
+      dpsi=dpsi,
+      ga = ga,
+      gs=gs,
+      E=E,
+      a=a,
+      ci=ci,
+      chi = ci/par_photosynth_now$ca,
+      vcmax=vcmax,
+      # profit = profit,
+      chi_jmax_lim = 0
+    ))
+  }
+
   
   
 }
