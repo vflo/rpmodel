@@ -49,7 +49,7 @@ calc_PM_params <- function(tc, p, nR, LAI){
   R =  8.31446261815324 #universal gas constant m3 Pa K−1 mol−1
   dry_air_mol = 0.0289647 #kg mol-1
   R_dry_air = R/dry_air_mol # specific dry air gas constant J kg-1 K-1
-  h2o_mol_mass = 0.01801528
+  h2o_mol_mass = 0.01801528 # kg water mol-1
   R_water = R/h2o_mol_mass # specific water vapour gas constant J kg-1 K-1
   # dry air density 
   air_dens = p/(R_dry_air*(tc+273.15)) #kg m-3
@@ -62,7 +62,7 @@ calc_PM_params <- function(tc, p, nR, LAI){
   # H2O mol Kg-1
   C = 1/h2o_mol_mass #mol kg-1
   # slope of the curve relating saturation vapour pressure to temperature
-  S = 4098*(0.6108*exp(17.27*tc/(tc+237.3)))/((237.3+tc)^2) *1000 #FAO Pa K-1
+  S = 4098*(611.1495*exp(17.27*tc/(tc+237.3)))/((237.3+tc)^2) #FAO Pa K-1
   Q = nR*(1-exp(-0.5*LAI))/LAI #leaf available enery J s-1 m-2leaf
   if(Q<0){Q=0}
   

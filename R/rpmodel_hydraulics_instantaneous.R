@@ -3,7 +3,7 @@
 #' Instantaneous photosynthesis rates for a given Vcmax and Jmax.
 #'
 #' @export
-pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, vcmax, jmax, opt_hypothesis = "PM", gs_approximation = "PM"){
+pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, LAI, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, vcmax, jmax, opt_hypothesis = "PM", gs_approximation = "PM"){
   
   p = rpmodel::calc_patm(elv)
   
@@ -25,7 +25,8 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, el
     vpd = vpd,
     u = u,
     ustar = ustar,
-    nR = nR
+    nR = nR,
+    LAI = LAI
   )
   
   par_plant_now = par_plant
@@ -54,7 +55,7 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, el
     gs = calc_gs(dpsi, psi_soil, par_plant, par_env_now)  # gs in mol/m2/s/Mpa
     E = 1.6*gs*(par_env_now$vpd/par_env_now$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
-    PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_plant_now$LAI)
+    PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_env_now$LAI)
     u = par_env_now$u
     ustar = par_env_now$ustar
     R = PM_params$R

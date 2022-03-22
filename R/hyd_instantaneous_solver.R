@@ -33,7 +33,7 @@ fn_profit_instantaneous = function(par, jmax, vcmax, psi_soil, par_cost, par_pho
     gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
     E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
-    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
+    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_env$LAI)
     u = par_env$u
     ustar = par_env$ustar
     R = PM_params$R

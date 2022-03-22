@@ -60,7 +60,7 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
     gs = calc_gs(dpsi, psi_soil, par_plant, par_env)  # gs in mol/m2/s/Mpa
     E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
-    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_plant$LAI)
+    PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_env$LAI)
     ga = calc_ga(par_env$u, par_env$ustar, PM_params$R, par_env$tc, par_env$patm)
     gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
   }

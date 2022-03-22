@@ -3,7 +3,7 @@
 #' Calculates the carboxylation capacity, as coordinated to a given electron-transport limited assimilation rate.
 #'
 #' @export
-pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM", gs_approximation = "PM"){
+pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, LAI, fapar, kphio, psi_soil, rdark = 0, par_plant, par_cost = NULL, opt_hypothesis = "PM", gs_approximation = "PM"){
   
   p = rpmodel::calc_patm(elv)
   
@@ -25,7 +25,8 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
     vpd = vpd,
     u = u,
     ustar = ustar,
-    nR = nR
+    nR = nR,
+    LAI = LAI
   )
   
   par_plant_now = par_plant
@@ -59,7 +60,7 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, f
     gs = calc_gs(dpsi, psi_soil, par_plant, par_env_now)  # gs in mol/m2/s/Mpa
     E = 1.6*gs*(par_env_now$vpd/par_env_now$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
-    PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_plant_now$LAI)
+    PM_params = calc_PM_params(par_env_now$tc,par_env_now$patm, par_env_now$nR, par_env_now$LAI)
     R = PM_params$R
     tc = par_env_now$tc
     patm = par_env_now$patm
