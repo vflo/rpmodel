@@ -55,7 +55,7 @@ fn_profit_instantaneous = function(par, jmax, vcmax, psi_soil, par_cost, par_pho
     foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, Ga_h = ga,Gs_pot = gsh2o, G=0, S=0)
     E = bigleaf::potential.ET(foo,approach="Penman-Monteith",S=0,G=0)
     foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, LE = L*E$ET_pot, Ga_h = ga, Gs_pot = gsh2o, G=0, S=0)
-    gsh2o = bigleaf::surface.conductance(foo,formulation ="Penman-Monteith" ,S=0,G=0)
+    gsh2o = bigleaf::surface.conductance(foo,formulation ="Penman-Monteith" ,S=0,G=0)[['Gs_mol']]
     gs = gsh2o/1.6
   }
   A = calc_assimilation_limiting(vcmax, jmax, gs, par_photosynth)$a
