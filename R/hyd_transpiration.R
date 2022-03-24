@@ -120,10 +120,13 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
   S = PM_params$S
   Q = PM_params$Q
   ga = calc_ga(u, ustar, R, tc, patm)
+
+  LE <- L * (-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b))/55.5
+  foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, LE = LE, Ga_h = ga )
   
-  divid <- (S*Q+dens*cp*vpd*ga)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
-  
-  pch*ga/(divid)*patm/R/(tc+273.15) #Return Gs in molH20 m-2leaf  s-1
+  PM <- bigleaf::surface.conductance(foo, formulation = "Penman-Monteith",G=0,S=0)[["Gs_mol"]]
+  # Gs <- bigleaf::surface.conductance(foo, formulation = "Flux-Gradient")[["Gs_mol"]]
+  return(PM)
 }
 
 #' Stomatal conductance and Transpiration

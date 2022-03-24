@@ -61,8 +61,14 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
     E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
     PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_env$LAI)
-    ga = calc_ga(par_env$u, par_env$ustar, PM_params$R, par_env$tc, par_env$patm)
+    ga = calc_ga(par_env$u, par_env$ustar, R, tc, patm)
     gsh2o = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
+    # gs = gsh2o/1.6
+    # E = (S*Q+dens*cp*vpd*ga)/(L*(S+pch*(1+ga/gsh2o)))*patm/R/(tc+273.15)*1e6 # E in umol/m2/s
+    foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, Ga_h = ga,Gs_pot = gsh2o, G=0, S=0)
+    E = bigleaf::potential.ET(foo,approach="Penman-Monteith",S=0,G=0)
+    foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, LE = L*E$ET_pot, Ga_h = ga, Gs_pot = gsh2o, G=0, S=0)
+    gsh2o = bigleaf::surface.conductance(foo,formulation ="Penman-Monteith" ,S=0,G=0)
     gs = gsh2o/1.6
   }
   
