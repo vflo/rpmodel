@@ -121,7 +121,7 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
   Q = PM_params$Q
   ga = calc_ga(u, ustar, R, tc, patm)
   
-  divid <- C*(S*Q+dens*cp*vpd*ga)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
+  divid <- (S*Q+dens*cp*vpd*ga)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
   
   pch*ga/(divid) #Return Gs in m3H20 m-2leaf  s-1
 }
