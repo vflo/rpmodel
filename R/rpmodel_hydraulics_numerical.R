@@ -81,7 +81,8 @@ pmodel_hydraulics_numerical <- function(tc, ppfd, vpd, u, ustar, nR, co2, elv, L
     E = bigleaf::potential.ET(foo,approach="Penman-Monteith",S=0,G=0)
     foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, LE = L*E$ET_pot, Ga_h = ga, Gs_pot = gsh2o, G=0, S=0)
     gsh2o = bigleaf::surface.conductance(foo,formulation ="Penman-Monteith" ,S=0,G=0)[['Gs_mol']]
-    gs = gsh2o/1.6
+    gs = gsh2o/1.6*1e6 
+    E = E[['ET_pot']]
   }
   
   a_j = calc_assim_light_limited(gs = gs, jmax = jmax, par_photosynth = par_photosynth_now)
