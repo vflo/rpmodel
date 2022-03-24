@@ -73,7 +73,7 @@ pmodel_hydraulics_instantaneous <- function(tc, ppfd, vpd, u, ustar, nR, co2, el
     ga = calc_ga(u, ustar, R, tc, patm)
     gsh2o = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now, PM_params)
     gs = gsh2o/1.6
-    E = (S*Q+dens*cp*D*ga)/(L*(S+pch*(1+ga/gsh2o)))*patm/R/(tc+273.15)*1e6 # E in umol/m2/s
+    E = (S*Q+dens*cp*vpd*ga)/(L*(S+pch*(1+ga/gsh2o)))*patm/R/(tc+273.15)*1e6 # E in umol/m2/s
   }
   
   a_l = calc_assimilation_limiting(vcmax, jmax, gs, par_photosynth_now)
