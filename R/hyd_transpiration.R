@@ -123,7 +123,7 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
   
   divid <- (S*Q+dens*cp*vpd*ga)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
   
-  pch*ga*p/(R*tc)/(1.6*divid) #Return Gs in molco2 m-2leaf  s-1
+  pch*ga*patm/(R*tc)/(1.6*divid) #Return Gs in molco2 m-2leaf  s-1
 }
 
 #' Stomatal conductance and Transpiration
