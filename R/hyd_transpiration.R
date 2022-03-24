@@ -74,11 +74,11 @@ calc_PM_params <- function(tc, p, nR, LAI){
 calc_ga <- function(u,ustar,R,tc,p){
   # u = wind speed m s-1
   # ustar = friction velocity m s-1
-  # ga = aerodynamic conductance molh2o m-2 Pa-1 s-1
+  # ga = aerodynamic conductance m s-1
   if(!is.na(ustar)){
-    (1/((u/ustar)+135*ustar^(-0.67)))*p/(R*tc) #Thom 1972 Momentum, mass and heat exchange of vegetation
+    (1/((u/ustar)+135*ustar^(-0.67))) #Thom 1972 Momentum, mass and heat exchange of vegetation
   }else{
-    (u/208)*p/(R*tc) #Allen et al 1998 crop evapotranspiration-guidelines for computing crop water requirements
+    (u/208) #Allen et al 1998 crop evapotranspiration-guidelines for computing crop water requirements
   }
 }
 
@@ -121,9 +121,9 @@ calc_gs_PM = function(dpsi, psi_soil, par_plant, par_env, PM_params, ...){
   Q = PM_params$Q
   ga = calc_ga(u, ustar, R, tc, patm)
   
-  divid <- C*(S*Q+dens*cp*vpd*ga*R*tc/patm)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
+  divid <- (S*Q+dens*cp*vpd*ga)/(L*(-K*integral_P(dpsi, psi_soil, par_plant$psi50, par_plant$b, ...))) -S -pch
   
-  pch*ga/(1.6*divid) #Return Gs in molco2 m-2leaf  s-1
+  pch*ga*p/(R*tc)/(1.6*divid) #Return Gs in molco2 m-2leaf  s-1
 }
 
 #' Stomatal conductance and Transpiration
