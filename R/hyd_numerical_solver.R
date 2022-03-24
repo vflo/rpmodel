@@ -61,6 +61,20 @@ fn_profit <- function(par, psi_soil, par_cost, par_photosynth, par_plant, par_en
     E = 1.6*gs*(par_env$vpd/par_env$patm)*1e6         # E in umol/m2/s
   } else if (gs_approximation == "PM"){
     PM_params = calc_PM_params(par_env$tc,par_env$patm, par_env$nR, par_env$LAI)
+    u = par_env$u
+    ustar = par_env$ustar
+    R = PM_params$R
+    tc = par_env$tc
+    patm = par_env$patm
+    dens = PM_params$air_dens
+    cp =PM_params$cp
+    L = PM_params$L
+    pch = PM_params$pch
+    C = PM_params$C
+    S = PM_params$S
+    Q = PM_params$Q
+    vpd = par_env$vpd
+    D = par_env$vpd/par_env$patm
     ga = calc_ga(par_env$u, par_env$ustar, R, tc, patm)
     gsh2o = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
     # gs = gsh2o/1.6

@@ -48,8 +48,8 @@ fn_profit_instantaneous = function(par, jmax, vcmax, psi_soil, par_cost, par_pho
     Q = PM_params$Q
     vpd = par_env$vpd
     D = par_env$vpd/par_env$patm
-    ga = calc_ga(par_env_now$u, par_env_now$ustar, R, tc, patm)
-    gsh2o = calc_gs_PM(dpsi, psi_soil, par_plant_now, par_env_now, PM_params)
+    ga = calc_ga(par_env$u, par_env$ustar, R, tc, patm)
+    gsh2o = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
     # gs = gsh2o/1.6
     # E = (S*Q+dens*cp*vpd*ga)/(L*(S+pch*(1+ga/gsh2o)))*patm/R/(tc+273.15)*1e6 # E in umol/m2/s
     foo <- data.frame(Tair = tc, pressure = patm/1000, Rn = Q, VPD = vpd/1000, Ga_h = ga,Gs_pot = gsh2o, G=0, S=0)
