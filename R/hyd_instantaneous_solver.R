@@ -49,8 +49,7 @@ fn_profit_instantaneous = function(par, jmax, vcmax, psi_soil, par_cost, par_pho
     D = par_env$vpd/par_env$patm
     ga = calc_ga(u, ustar, R, tc, patm)
     gs = calc_gs_PM(dpsi, psi_soil, par_plant, par_env, PM_params)
-    # E = C*(S*Q+dens*cp*D*ga*R*tc/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
-    E = (S*Q+dens*cp*vpd*ga)/(L*(S+pch*(1+(ga*patm/(R*(tc+273.15)))/(1.6*gs))))
+    E = C*(S*Q+dens*cp*D*ga*R*(tc+273.15)/patm)/(L*(S+pch*(1+ga/(1.6*gs))))
   }
   A = calc_assimilation_limiting(vcmax, jmax, gs, par_photosynth)$a
   profit = A - par_cost$gamma * dpsi^2  
